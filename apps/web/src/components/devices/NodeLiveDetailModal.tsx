@@ -112,19 +112,19 @@ export function NodeLiveDetailModal({ node, onClose }: NodeLiveDetailModalProps)
           <div className="es-live-hero-prediction-box">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <span style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8F90A6', fontWeight: 700 }}>
+                <span style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#737487', fontWeight: 700 }}>
                   Active TinyML Prediction
                 </span>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', marginTop: 4 }}>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#17171C', marginTop: 4 }}>
                   {pred ? pred.predictionClass.replace(/_/g, ' ') : 'Analyzing...'}
                 </div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '26px', fontWeight: 800, color: isFault ? '#FF5E62' : '#3EE8B5' }}>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: isFault ? '#D83A4E' : '#16A36A' }}>
                   {pred ? Math.round(pred.confidence * 100) : 90}%
                 </div>
-                <span style={{ fontSize: '10.5px', color: '#8F90A6' }}>Score Confidence</span>
+                <span style={{ fontSize: '10.5px', color: '#737487' }}>Score Confidence</span>
               </div>
             </div>
 

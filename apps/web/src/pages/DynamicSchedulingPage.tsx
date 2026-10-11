@@ -21,6 +21,73 @@ interface ScheduledTask {
   reassignmentReason?: string;
 }
 
+interface NodeCapability {
+  hasIMU: boolean;
+  imuSensorType?: string;
+  hasAudio: boolean;
+  hasProximity: boolean;
+  hasEnv: boolean;
+  maxSpiSpeedKhz: number;
+  ramKb: number;
+  maxSamplingRateHz: number;
+  canAccessExternalAdxl345Spi: boolean;
+}
+
+const NODE_CAPABILITIES: Record<string, NodeCapability> = {
+  'node-nano33-ble': {
+    hasIMU: true,
+    imuSensorType: 'LSM9DS1 (Onboard I2C/SPI)',
+    hasAudio: false,
+    hasProximity: false,
+    hasEnv: false,
+    maxSpiSpeedKhz: 8000,
+    ramKb: 256,
+    maxSamplingRateHz: 952, // LSM9DS1 max accelerometer output data rate
+    canAccessExternalAdxl345Spi: false, // Physical pinout isolation: Nano cannot sample Node 3's ADXL345
+  },
+  'node-esp32-max9814': {
+    hasIMU: false,
+    hasAudio: true,
+    hasProximity: false,
+    hasEnv: false,
+    maxSpiSpeedKhz: 10000,
+    ramKb: 520,
+    maxSamplingRateHz: 16000,
+    canAccessExternalAdxl345Spi: false,
+  },
+  'node-esp32-adxl345': {
+    hasIMU: true,
+    imuSensorType: 'ADXL345 (Dedicated High-Bandwidth SPI)',
+    hasAudio: false,
+    hasProximity: false,
+    hasEnv: false,
+    maxSpiSpeedKhz: 5000,
+    ramKb: 520,
+    maxSamplingRateHz: 3200, // ADXL345 3.2kHz output data rate for bearing vibration
+    canAccessExternalAdxl345Spi: true,
+  },
+  'node-esp32-pir-dist': {
+    hasIMU: false,
+    hasAudio: false,
+    hasProximity: true,
+    hasEnv: false,
+    maxSpiSpeedKhz: 10000,
+    ramKb: 520,
+    maxSamplingRateHz: 50,
+    canAccessExternalAdxl345Spi: false,
+  },
+  'node-esp32-env-bme': {
+    hasIMU: false,
+    hasAudio: false,
+    hasProximity: false,
+    hasEnv: true,
+    maxSpiSpeedKhz: 10000,
+    ramKb: 520,
+    maxSamplingRateHz: 10,
+    canAccessExternalAdxl345Spi: false,
+  },
+};
+
 export function DynamicSchedulingPage() {
   const { nodes, injectSensorFault, resolveIncident, incidents } = useSimulator();
   const [policy, setPolicy] = useState<'latency' | 'energy' | 'fault_tolerant'>('fault_tolerant');
@@ -31,28 +98,71 @@ export function DynamicSchedulingPage() {
   const node3 = nodes.find((n) => n.id === 'node-esp32-adxl345');
   const isNode3Fault = node3?.integrationState === 'fault';
 
-  // Deterministic task assignment based on current fleet condition and selected policy
-  const baseTasks: ScheduledTask[] = [
-    {
+  // Workload Migration Compatibility Audit for Node 3's ADXL345 Bearing Vibration FFT:
+  // Requires: 3200 Hz sampling rate, 128-pt FFT (min 16KB DSP memory), and direct physical access to the motor-mounted accelerometer.
+  // Note: While the Arduino Nano 33 BLE Sense has an onboard LSM9DS1 IMU (952Hz max), it lacks physical wired access
+  // to Node 3's motor accelerometer and operates at insufficient sample rate for bearing defect harmonics (>1.5kHz).
+  // Therefore, dynamic failover cannot migrate to Nano 33 BLE. The workload must route to Raspberry Pi 5 Gateway.
+  const getVibrationAssignment = (): ScheduledTask => {
+    if (!isNode3Fault) {
+      return {
+        id: 'task-vib-fft',
+        name: 'Vibration Harmonic Feature Extraction (3.2 kHz ADXL345)',
+        assignedNodeId: 'node-esp32-adxl345',
+        assignedNodeName: 'ESP32 Vibration Node (ADXL345)',
+        targetMcu: 'ESP32-WROOM-32D',
+        estimatedLatencyMs: policy === 'latency' ? 8.2 : 8.8,
+        energyCostUj: policy === 'energy' ? 36 : 42,
+        priority: 'high',
+      };
+    }
+
+    // Programmatic verification against NODE_CAPABILITIES matrix:
+    const nanoCap = NODE_CAPABILITIES['node-nano33-ble'];
+    const peerHasSensorAccess = nanoCap.canAccessExternalAdxl345Spi && nanoCap.maxSamplingRateHz >= 3200;
+
+    if (peerHasSensorAccess) {
+      return {
+        id: 'task-vib-fft',
+        name: 'Vibration Harmonic Feature Extraction (3.2 kHz ADXL345)',
+        assignedNodeId: 'node-nano33-ble',
+        assignedNodeName: 'Arduino Nano 33 BLE Sense (Failover)',
+        targetMcu: 'Nordic nRF52840 (64MHz Cortex-M4F)',
+        estimatedLatencyMs: 14.8,
+        energyCostUj: 64,
+        priority: 'high',
+        reassignedFrom: 'node-esp32-adxl345',
+        reassignmentReason: 'Dynamic failover to compatible edge peer.',
+      };
+    }
+
+    // Failover evaluation: No edge peer possesses physical wiring or 3.2kHz bandwidth to Node 3's motor sensor.
+    // Assigning to Raspberry Pi 5 Gateway for central spectral FFT analysis.
+    return {
       id: 'task-vib-fft',
-      name: 'Vibration Harmonic Feature Extraction',
-      assignedNodeId: isNode3Fault ? 'node-nano33-ble' : 'node-esp32-adxl345',
-      assignedNodeName: isNode3Fault ? 'Arduino Nano 33 BLE Sense (Failover)' : 'ESP32 Vibration Node (ADXL345)',
-      targetMcu: isNode3Fault ? 'Nordic nRF52840' : 'ESP32-WROOM-32D',
-      estimatedLatencyMs: isNode3Fault ? 14.8 : 8.8,
-      energyCostUj: isNode3Fault ? 64 : 42,
+      name: 'Vibration Harmonic Feature Extraction (3.2 kHz ADXL345)',
+      assignedNodeId: 'gateway-rpi5',
+      assignedNodeName: 'Raspberry Pi 5 Gateway (Host Failover)',
+      targetMcu: 'Broadcom BCM2712 (Quad Cortex-A76 @ 2.4GHz)',
+      estimatedLatencyMs: 1.8,
+      energyCostUj: 280,
       priority: 'high',
-      reassignedFrom: isNode3Fault ? 'node-esp32-adxl345' : undefined,
-      reassignmentReason: isNode3Fault ? 'Primary node in SPI overrun fault state. Workload migrated to backup Cortex-M4.' : undefined,
-    },
+      reassignedFrom: 'node-esp32-adxl345',
+      reassignmentReason:
+        'Primary Node 3 SPI overrun. Edge peer Arduino Nano 33 BLE rejected: lack of physical wiring to motor sensor (ADXL345 SPI) and LSM9DS1 limited to 952Hz. Workload failed over to Raspberry Pi 5 Gateway. Estimated penalty: +238µJ energy (simulated).',
+    };
+  };
+
+  const scheduledTasks: ScheduledTask[] = [
+    getVibrationAssignment(),
     {
       id: 'task-kws-audio',
       name: 'Acoustic Anomaly & Sound Classifier',
       assignedNodeId: 'node-esp32-max9814',
       assignedNodeName: 'ESP32 Acoustic Node (MAX9814)',
       targetMcu: 'ESP32-WROOM-32D',
-      estimatedLatencyMs: policy === 'energy' ? 14.2 : 11.5,
-      energyCostUj: policy === 'energy' ? 32 : 48,
+      estimatedLatencyMs: policy === 'energy' ? 14.2 : policy === 'latency' ? 9.8 : 11.5,
+      energyCostUj: policy === 'energy' ? 32 : policy === 'latency' ? 56 : 48,
       priority: 'medium',
     },
     {
@@ -61,8 +171,8 @@ export function DynamicSchedulingPage() {
       assignedNodeId: 'node-esp32-pir-dist',
       assignedNodeName: 'ESP32 Motion & Proximity Node',
       targetMcu: 'ESP32-WROOM-32D',
-      estimatedLatencyMs: 3.2,
-      energyCostUj: 18,
+      estimatedLatencyMs: policy === 'energy' ? 5.1 : 3.2,
+      energyCostUj: policy === 'energy' ? 12 : 18,
       priority: 'high',
     },
     {
@@ -71,8 +181,8 @@ export function DynamicSchedulingPage() {
       assignedNodeId: 'node-esp32-env-bme',
       assignedNodeName: 'ESP32 Environmental Node',
       targetMcu: 'ESP32-WROOM-32D',
-      estimatedLatencyMs: 4.6,
-      energyCostUj: 22,
+      estimatedLatencyMs: policy === 'energy' ? 6.8 : 4.6,
+      energyCostUj: policy === 'energy' ? 16 : 22,
       priority: 'low',
     },
   ];
@@ -81,7 +191,11 @@ export function DynamicSchedulingPage() {
     setPolicy(newPolicy);
     const nowTime = new Date().toTimeString().slice(0, 8);
     setSchedulerLog((prev) => [
-      { time: nowTime, msg: `Scheduling policy switched to: ${newPolicy.toUpperCase()}. Evaluating fleet latency and energy trade-offs.`, type: 'info' },
+      {
+        time: nowTime,
+        msg: `Policy recalculated: ${newPolicy.toUpperCase()}. Updated duty cycles, sleep intervals, and compute budget across 5 nodes.`,
+        type: 'info',
+      },
       ...prev,
     ]);
   };
@@ -92,7 +206,7 @@ export function DynamicSchedulingPage() {
     setSchedulerLog((prev) => [
       {
         time: nowTime,
-        msg: 'ALERT: Node 3 SPI Overrun triggered! Gateway Scheduler autonomously migrated task-vib-fft to Arduino Nano 33 BLE Sense.',
+        msg: 'ALERT: Node 3 SPI Overrun! Verified edge peer constraints (lack of motor sensor access). Autonomously migrated task-vib-fft to Raspberry Pi 5 Gateway.',
         type: 'warn',
       },
       ...prev,
@@ -108,7 +222,7 @@ export function DynamicSchedulingPage() {
     setSchedulerLog((prev) => [
       {
         time: nowTime,
-        msg: 'Node 3 fault cleared. Gateway restored primary vibration extraction workload back to ESP32 ADXL345.',
+        msg: 'Node 3 fault resolved. Gateway restored primary vibration task to ESP32-ADXL345. Energy-optimal baseline re-established.',
         type: 'success',
       },
       ...prev,
@@ -202,7 +316,7 @@ export function DynamicSchedulingPage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {baseTasks.map((t) => (
+            {scheduledTasks.map((t) => (
               <div
                 key={t.id}
                 style={{
@@ -238,13 +352,13 @@ export function DynamicSchedulingPage() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#17171C' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#17171C' }} title="Estimated simulated latency">
                       <Clock size={11} style={{ display: 'inline', marginRight: 4 }} />
-                      {t.estimatedLatencyMs} ms
+                      {t.estimatedLatencyMs} est. ms
                     </div>
-                    <div style={{ fontSize: '11px', color: '#8F90A6' }}>
+                    <div style={{ fontSize: '11px', color: '#8F90A6' }} title="Estimated simulated compute energy">
                       <Battery size={11} style={{ display: 'inline', marginRight: 4 }} />
-                      {t.energyCostUj} µJ
+                      {t.energyCostUj} est. µJ
                     </div>
                   </div>
                   <span className={`es-impact-pill is-${t.priority}`}>{t.priority}</span>

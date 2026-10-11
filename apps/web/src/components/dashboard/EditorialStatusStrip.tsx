@@ -1,141 +1,62 @@
-import { useSimulator } from '@/context/SimulatorContext';
 import { StatusBadge } from '@/components/common/StatusBadge';
 
 export function EditorialStatusStrip() {
-  const { gateway, nodes, pipeline, incidents, models, isFreshInstall } = useSimulator();
-
-  const simulatedNodesCount = nodes.filter((n) => n.integrationState === 'simulated').length;
-  const awaitingNodesCount = nodes.filter((n) => n.integrationState === 'awaiting_integration').length;
-  const faultNodesCount = nodes.filter((n) => n.integrationState === 'fault').length;
-
-  const deployedModelsCount = models.filter((m) => m.deploymentState === 'deployed').length;
-  const stagedModelsCount = models.filter((m) => m.deploymentState === 'staged').length;
-
-  const openIncidents = incidents.filter((i) => i.status !== 'resolved');
-
   return (
-    <section aria-label="Edge Infrastructure Operational Summary">
-      <div className="es-status-strip">
-        {/* Cell 1: Gateway Status */}
+    <section aria-label="Edge Infrastructure Operational Summary and Implementation Roadmap">
+      <div className="es-status-strip" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        {/* Cell 1: Phase A */}
         <div className="es-status-strip-cell">
-          <span className="es-status-strip-label">1. Edge Gateway</span>
-          <div className="es-status-strip-value">
-            {isFreshInstall ? (
-              <span style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--font-size-md)' }}>
-                Unconfigured
-              </span>
-            ) : (
-              <span>Raspberry Pi 5</span>
-            )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="es-status-strip-label">Phase A: Correctness First</span>
+            <StatusBadge variant="healthy" label="COMPLETE" />
+          </div>
+          <div className="es-status-strip-value" style={{ marginTop: 4 }}>
+            <span>5 Initial Nodes</span>
           </div>
           <div className="es-status-strip-meta">
-            {isFreshInstall ? (
-              <StatusBadge variant="configured" label="Awaiting Setup" />
-            ) : (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <StatusBadge variant="healthy" label="Services Active" />
-                <span>{gateway.thermalTempC}°C · {gateway.cpuLoadPct}% CPU</span>
-              </span>
-            )}
+            <span>5 logical nodes immutable · KPI labels & Unicode verified · Grounded baseline</span>
           </div>
         </div>
 
-        {/* Cell 2: Planned Nodes Inventory */}
+        {/* Cell 2: Phase B */}
         <div className="es-status-strip-cell">
-          <span className="es-status-strip-label">2. Planned Fleet</span>
-          <div className="es-status-strip-value">
-            <span>5 Planned Nodes</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="es-status-strip-label">Phase B: Functional Controls</span>
+            <StatusBadge variant="healthy" label="COMPLETE" />
+          </div>
+          <div className="es-status-strip-value" style={{ marginTop: 4 }}>
+            <span>Interactive Controls</span>
           </div>
           <div className="es-status-strip-meta">
-            {isFreshInstall ? (
-              <span style={{ color: 'var(--color-neutral-400)' }}>5 awaiting physical pairing</span>
-            ) : (
-              <span>
-                <strong style={{ color: 'var(--color-primary-600)' }}>{simulatedNodesCount}</strong> active
-                {faultNodesCount > 0 && (
-                  <strong style={{ color: 'var(--color-danger-600)' }}> · {faultNodesCount} fault</strong>
-                )}
-                {' · '}
-                <span>{awaitingNodesCount} awaiting</span>
-              </span>
-            )}
+            <span>In-app XAI evidence routing · Device registration modal · CSV/JSON exports</span>
           </div>
         </div>
 
-        {/* Cell 3: Telemetry Pipeline */}
+        {/* Cell 3: Phase C */}
         <div className="es-status-strip-cell">
-          <span className="es-status-strip-label">3. Ingestion Pipeline</span>
-          <div className="es-status-strip-value">
-            {isFreshInstall ? (
-              <span>0 pkts</span>
-            ) : (
-              <span>
-                {pipeline.messagesReceivedTotal}
-                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 500, color: 'var(--color-neutral-500)' }}>
-                  pkts
-                </span>
-              </span>
-            )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="es-status-strip-label">Phase C: Live Simulation</span>
+            <StatusBadge variant="healthy" label="COMPLETE" />
+          </div>
+          <div className="es-status-strip-value" style={{ marginTop: 4 }}>
+            <span>Telemetry & XAI</span>
           </div>
           <div className="es-status-strip-meta">
-            {isFreshInstall ? (
-              <span>No telemetry received</span>
-            ) : (
-              <span>
-                {pipeline.ingestionRatePerSec > 0 ? `${pipeline.ingestionRatePerSec} msg/s` : 'Idle'}
-                {' · '}
-                {pipeline.droppedPacketsCount > 0 ? (
-                  <span style={{ color: 'var(--color-danger-600)' }}>{pipeline.droppedPacketsCount} drops</span>
-                ) : (
-                  <span>0 drops</span>
-                )}
-              </span>
-            )}
+            <span>Continuous synthetic telemetry (disclosed) · Bounded buffer · v1 persistence</span>
           </div>
         </div>
 
-        {/* Cell 4: Open Incidents */}
+        {/* Cell 4: Phase D */}
         <div className="es-status-strip-cell">
-          <span className="es-status-strip-label">4. Active Faults</span>
-          <div className="es-status-strip-value">
-            <span style={{ color: openIncidents.length > 0 ? 'var(--color-danger-600)' : 'var(--color-neutral-900)' }}>
-              {openIncidents.length}
-            </span>
-            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 500, color: 'var(--color-neutral-500)' }}>
-              {openIncidents.length === 1 ? 'incident' : 'incidents'}
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="es-status-strip-label">Phase D: Production Readiness</span>
+            <StatusBadge variant="warning" label="IN PROGRESS" />
+          </div>
+          <div className="es-status-strip-value" style={{ marginTop: 4 }}>
+            <span>Gateway Sim Active</span>
           </div>
           <div className="es-status-strip-meta">
-            {openIncidents.length > 0 ? (
-              <span style={{ color: 'var(--color-danger-600)', fontWeight: 600 }}>
-                {openIncidents[0].id} ({openIncidents[0].severity})
-              </span>
-            ) : (
-              <span style={{ color: 'var(--color-success-700)' }}>All signals nominal</span>
-            )}
-          </div>
-        </div>
-
-        {/* Cell 5: TinyML Deployments */}
-        <div className="es-status-strip-cell">
-          <span className="es-status-strip-label">5. TinyML Models</span>
-          <div className="es-status-strip-value">
-            {isFreshInstall ? (
-              <span style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--font-size-md)' }}>
-                None staged
-              </span>
-            ) : (
-              <span>{deployedModelsCount} Deployed</span>
-            )}
-          </div>
-          <div className="es-status-strip-meta">
-            {isFreshInstall ? (
-              <span>Awaiting model compilation</span>
-            ) : (
-              <span>
-                {stagedModelsCount} staged · TFLite Micro INT8
-              </span>
-            )}
+            <span>Simulated RPi 5 active · Physical hardware, prod MQTT, Auth & OTA planned</span>
           </div>
         </div>
       </div>

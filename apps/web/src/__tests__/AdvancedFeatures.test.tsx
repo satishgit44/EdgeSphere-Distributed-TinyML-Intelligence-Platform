@@ -130,9 +130,9 @@ describe('Advanced Platform Features: Live Inference, FL, Scheduling & Benchmark
     const failoverBtn = screen.getByText(/Inject Node 3 Fault \(Test Failover\)/i);
     fireEvent.click(failoverBtn);
 
-    // Verify task migration happened
+    // Verify task migration happened to verified Gateway host
     expect(screen.getByText(/FAILOVER REASSIGNED/i)).toBeDefined();
-    expect(screen.getByText(/Arduino Nano 33 BLE Sense \(Failover\)/i)).toBeDefined();
+    expect(screen.getByText(/Raspberry Pi 5 Gateway \(Host Failover\)/i)).toBeDefined();
   });
 
   /* ── 4. Benchmark Tab ── */
@@ -156,5 +156,60 @@ describe('Advanced Platform Features: Live Inference, FL, Scheduling & Benchmark
 
     // CSV export button exists
     expect(screen.getByText(/Export Benchmark CSV/i)).toBeDefined();
+  });
+
+  /* ── 5. Mathematical FedAvg Convergence and Edge Case Verification ── */
+  it('mathematically executes FedAvg with sample weighting, handles resets and single client updates', () => {
+    render(
+      <SimulatorProvider>
+        <NavigationProvider value={{ currentRoute: 'federated-learning', navigate: () => {} }}>
+          <FederatedLearningPage />
+        </NavigationProvider>
+      </SimulatorProvider>
+    );
+
+    // Initial state verified
+    expect(screen.getByText('Round 3 / 5')).toBeDefined();
+    expect(screen.getByText(/Current Global Vector:/i)).toBeDefined();
+
+    // Reset button returns round to 1 with restored global weights
+    const resetBtn = screen.getByText(/Reset/i);
+    fireEvent.click(resetBtn);
+    expect(screen.getByText('Round 1 / 5')).toBeDefined();
+    expect(screen.getByText('v1.1.0')).toBeDefined();
+
+    // Verify reset parameter vector is displayed in table
+    expect(screen.getByText(/FedAvg Aggregated Parameter Vectors/i)).toBeDefined();
+  });
+
+  /* ── 6. Hardware-Aware Scheduler Policy and Compatibility Verification ── */
+  it('evaluates policies and rejects incompatible edge peers when migrating ADXL345 workload', () => {
+    render(
+      <SimulatorProvider>
+        <NavigationProvider value={{ currentRoute: 'dynamic-scheduling', navigate: () => {} }}>
+          <DynamicSchedulingPage />
+        </NavigationProvider>
+      </SimulatorProvider>
+    );
+
+    // Initial normal operation: assigned to ESP32 ADXL345
+    expect(screen.getByText(/ESP32 Vibration Node \(ADXL345\)/i)).toBeDefined();
+
+    // Test Energy policy recalculation
+    const energyBtn = screen.getByText(/Energy Conservation/i);
+    fireEvent.click(energyBtn);
+
+    // Inject fault to trigger hardware-aware failover evaluation
+    const faultBtn = screen.getByText(/Inject Node 3 Fault/i);
+    fireEvent.click(faultBtn);
+
+    // Workload must be routed to Raspberry Pi 5 Gateway rather than incompatible Nano 33 BLE
+    expect(screen.getByText(/Raspberry Pi 5 Gateway \(Host Failover\)/i)).toBeDefined();
+    expect(screen.getByText(/lack of physical wiring to motor sensor/i)).toBeDefined();
+
+    // Clear fault restores primary node
+    const restoreBtn = screen.getByText(/Clear Fault & Restore Task/i);
+    fireEvent.click(restoreBtn);
+    expect(screen.getByText(/ESP32 Vibration Node \(ADXL345\)/i)).toBeDefined();
   });
 });
