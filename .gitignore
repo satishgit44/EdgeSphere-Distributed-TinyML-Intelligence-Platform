@@ -1,0 +1,78 @@
+# ============================================================
+# EdgeSphere Console — Git Ignore Specification
+# ============================================================
+
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# Production Build Outputs
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+build/
+**/build/
+*.tsbuildinfo
+
+# Environment & Secrets (Never commit credentials)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
+# Logs & Debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing & Coverage
+coverage/
+**/coverage/
+.nyc_output/
+.vitest/
+*.lcov
+
+# IDE & Editor Directories
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+*.swn
+*.bak
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# Temporary files & Scratch
+*.tmp
+*.temp
+screenshot*.png
+csnap/

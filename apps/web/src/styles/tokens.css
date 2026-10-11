@@ -1,0 +1,161 @@
+/* ============================================================
+   EdgeSphere Design Tokens: Technical Editorial for Edge Systems
+   Warm neutral canvas, charcoal typography, monospaced metadata,
+   selective muted violet and cyan accents, precise 1px borders.
+   ============================================================ */
+
+:root {
+  /* ── Specification Design Tokens (Connexio + Nexus AI Unified) ── */
+  --es-canvas: #F5F4FA;
+  --es-sidebar: #FFFFFF;
+  --es-surface: #FFFFFF;
+  --es-surface-muted: #F8F8FB;
+  --es-primary: #1677F8;
+  --es-primary-hover: #0F65D8;
+  --es-violet: #7955E9;
+  --es-cyan: #42DDE7;
+  --es-text: #17171C;
+  --es-text-secondary: #737487;
+  --es-text-muted: #9698A6;
+  --es-border: #E9E9F0;
+  --es-success: #16A36A;
+  --es-success-bg: #E0F8EC;
+  --es-warning: #B7791F;
+  --es-warning-bg: #FFF4D6;
+  --es-danger: #D83A4E;
+  --es-danger-bg: #FDE8EC;
+  --es-info-bg: #EAF3FF;
+  --es-radius-sm: 8px;
+  --es-radius-md: 12px;
+  --es-radius-lg: 16px;
+  --es-card-shadow: 0 1px 3px rgba(20, 20, 40, 0.035);
+
+  /* ── Canvas & Surfaces (Warm Off-White Technical Editorial) ── */
+  --surface-page: #F5F4FA;
+  --surface-card: #FFFFFF;
+  --surface-card-subtle: #F8F8FB;
+  --surface-sidebar: #FFFFFF;
+  --surface-hover: #F0F6FF;
+  --surface-active: #EAF3FF;
+  --surface-code: #F4F4F0;
+  --surface-overlay: rgba(23, 25, 28, 0.45);
+
+  /* ── Charcoal & Neutral Typography ── */
+  --color-neutral-0: #FFFFFF;
+  --color-neutral-50: #FBFBFA;
+  --color-neutral-100: #F4F3F8;
+  --color-neutral-200: #EAE8F1;
+  --color-neutral-300: #D8D5E4;
+  --color-neutral-400: #9693A5;
+  --color-neutral-500: #777489;
+  --color-neutral-600: #5D5A70;
+  --color-neutral-700: #343146;
+  --color-neutral-800: #252238;
+  --color-neutral-900: #171525;
+
+  /* ── Technical Semantic States ── */
+  --color-success-50: #F2F9F3;
+  --color-success-100: #E1F3E3;
+  --color-success-500: #1E8E3E;
+  --color-success-600: #166E30;
+  --color-success-700: #105224;
+
+  --color-warning-50: #FEF9EE;
+  --color-warning-100: #FDF0D4;
+  --color-warning-500: #B45309;
+  --color-warning-600: #92400E;
+  --color-warning-700: #78350F;
+
+  --color-danger-50: #FDF3F3;
+  --color-danger-100: #FCE2E2;
+  --color-danger-500: #C5221F;
+  --color-danger-600: #A51A18;
+  --color-danger-700: #881412;
+
+  /* ── Selective Accents (Muted Violet & Technical Cyan) ── */
+  --color-primary-50: #F3F0FF;
+  --color-primary-100: #E7E0FF;
+  --color-primary-200: #D4C9FF;
+  --color-primary-500: #7756F5;
+  --color-primary-600: #6744E8;
+  --color-primary-700: #5033C7;
+
+  --color-cyan-50: #EDFDFF;
+  --color-cyan-100: #D5F9FC;
+  --color-cyan-500: #20C9D9;
+  --color-cyan-600: #098C9B;
+
+  /* ── Typography Stack ── */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, Monaco, monospace;
+
+  --font-size-2xs: 0.625rem;   /* 10px */
+  --font-size-xs: 0.6875rem;   /* 11px */
+  --font-size-sm: 0.75rem;     /* 12px */
+  --font-size-base: 0.8125rem; /* 13px */
+  --font-size-md: 0.875rem;    /* 14px */
+  --font-size-lg: 1rem;        /* 16px */
+  --font-size-xl: 1.125rem;    /* 18px */
+  --font-size-2xl: 1.375rem;   /* 22px */
+  --font-size-3xl: 1.625rem;   /* 26px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+  --letter-spacing-tight: -0.015em;
+
+  /* ── Spacing (4px grid) ── */
+  --space-0: 0;
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+
+  /* ── Radii (Restrained & Structured) ── */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+
+  /* ── Technical Borders (Precise 1px) ── */
+  --border-default: 1px solid var(--color-neutral-200);
+  --border-subtle: 1px solid var(--color-neutral-100);
+  --border-strong: 1px solid var(--color-neutral-300);
+  --border-focus: 2px solid var(--color-primary-500);
+
+  /* ── Shadows (Very subtle technical elevation) ── */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(20, 22, 19, 0.03);
+  --shadow-sm: 0 1px 3px rgba(20, 22, 19, 0.05);
+  --shadow-md: 0 4px 8px -2px rgba(20, 22, 19, 0.06);
+
+  /* ── Layout ── */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 60px;
+  --topbar-height: 52px;
+  --content-max-width: 1480px;
+
+  /* ── Transitions ── */
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+  --transition-slow: 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+  }
+}
