@@ -92,9 +92,10 @@ export function TopBar({
   onNavigate,
   onOpenAiChat,
 }: TopBarProps) {
-  const { mode, nodes, incidents, models } = useSimulator();
+  const { mode, nodes, incidents, models, setSelectedNode } = useSimulator();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -105,20 +106,82 @@ export function TopBar({
     (n) =>
       searchQuery.trim() !== '' &&
       (n.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.role.toLowerCase().includes(searchQuery.toLowerCase()))
+        n.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.role.toLowerCase().includes(searchQuery.toLowerCase())),
   );
   const matchingIncidents = incidents.filter(
     (i) =>
       searchQuery.trim() !== '' &&
-      i.title.toLowerCase().includes(searchQuery.toLowerCase())
+      i.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   const matchingModels = models.filter(
     (m) =>
       searchQuery.trim() !== '' &&
-      m.name.toLowerCase().includes(searchQuery.toLowerCase())
+      m.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
-  const hasSearchResults =
-    matchingNodes.length > 0 || matchingIncidents.length > 0 || matchingModels.length > 0;
+
+  // Flattened results for keyboard navigation and stable listbox indices
+  interface SearchResultItem {
+    id: string;
+    type: 'node' | 'model' | 'alert';
+    title: string;
+    onSelect: () => void;
+  }
+
+  const flatResults: SearchResultItem[] = [
+    ...matchingNodes.map((n) => ({
+      id: `node-${n.id}`,
+      type: 'node' as const,
+      title: n.name,
+      onSelect: () => {
+        setSelectedNode(n);
+        onNavigate('devices');
+        setSearchQuery('');
+        setSearchOpen(false);
+      },
+    })),
+    ...matchingModels.map((m) => ({
+      id: `model-${m.id}`,
+      type: 'model' as const,
+      title: m.name,
+      onSelect: () => {
+        onNavigate('models');
+        setSearchQuery('');
+        setSearchOpen(false);
+      },
+    })),
+    ...matchingIncidents.map((i) => ({
+      id: `incident-${i.id}`,
+      type: 'alert' as const,
+      title: i.title,
+      onSelect: () => {
+        onNavigate('alerts');
+        setSearchQuery('');
+        setSearchOpen(false);
+      },
+    })),
+  ];
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!searchOpen || flatResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % flatResults.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev - 1 + flatResults.length) % flatResults.length);
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && highlightedIndex < flatResults.length) {
+        e.preventDefault();
+        flatResults[highlightedIndex].onSelect();
+      }
+    } else if (e.key === 'Escape') {
+      setSearchOpen(false);
+    }
+  };
+
+  const hasSearchResults = flatResults.length > 0;
 
   return (
     <header className="es-topbar-unified" role="banner">
@@ -138,88 +201,134 @@ export function TopBar({
       </div>
 
       <div className="es-topbar-right">
-        {/* Connexio Search Bar */}
+        {/* Local Catalog Search Bar with Combobox Semantics */}
         <div className="es-topbar-search-wrap">
           <Search size={14} className="es-topbar-search-icon" aria-hidden="true" />
           <input
             type="search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={searchOpen && searchQuery.trim() !== ''}
+            aria-controls="es-topbar-search-listbox"
+            aria-activedescendant={
+              highlightedIndex >= 0 && flatResults[highlightedIndex]
+                ? flatResults[highlightedIndex].id
+                : undefined
+            }
             className="es-topbar-search-input"
-            placeholder="Search Anythings…"
+            placeholder="Search nodes, models, alerts…"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setSearchOpen(true);
+              setHighlightedIndex(0);
             }}
-            onFocus={() => setSearchOpen(true)}
-            onBlur={() => setTimeout(() => setSearchOpen(false), 250)}
-            aria-label="Search EdgeSphere console"
+            onKeyDown={handleSearchKeyDown}
+            onFocus={() => {
+              if (searchQuery.trim() !== '') setSearchOpen(true);
+            }}
+            onBlur={() => {
+              setTimeout(() => setSearchOpen(false), 200);
+            }}
+            aria-label="Search local nodes, models, and alerts"
           />
 
           {searchOpen && searchQuery.trim() !== '' && (
-            <div className="es-search-dropdown" role="listbox">
+            <div
+              id="es-topbar-search-listbox"
+              className="es-search-dropdown"
+              role="listbox"
+              aria-label="Search suggestions"
+              onMouseDown={(e) => e.preventDefault()}
+            >
               {matchingNodes.length > 0 && (
                 <div className="es-search-section">
                   <span className="es-search-section-label">Nodes</span>
-                  {matchingNodes.map((n) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      className="es-search-item"
-                      onClick={() => {
-                        onNavigate('devices');
-                        setSearchQuery('');
-                      }}
-                    >
-                      <Cpu size={13} />
-                      <span>{n.name}</span>
-                    </button>
-                  ))}
+                  {matchingNodes.map((n) => {
+                    const itemIndex = flatResults.findIndex((r) => r.id === `node-${n.id}`);
+                    const isHighlighted = highlightedIndex === itemIndex;
+                    return (
+                      <button
+                        key={n.id}
+                        id={`node-${n.id}`}
+                        role="option"
+                        aria-selected={isHighlighted}
+                        type="button"
+                        className={`es-search-item ${isHighlighted ? 'is-highlighted' : ''}`}
+                        onClick={() => {
+                          setSelectedNode(n);
+                          onNavigate('devices');
+                          setSearchQuery('');
+                          setSearchOpen(false);
+                        }}
+                      >
+                        <Cpu size={13} />
+                        <span>{n.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {matchingModels.length > 0 && (
                 <div className="es-search-section">
                   <span className="es-search-section-label">Models</span>
-                  {matchingModels.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className="es-search-item"
-                      onClick={() => {
-                        onNavigate('models');
-                        setSearchQuery('');
-                      }}
-                    >
-                      <Box size={13} />
-                      <span>{m.name}</span>
-                    </button>
-                  ))}
+                  {matchingModels.map((m) => {
+                    const itemIndex = flatResults.findIndex((r) => r.id === `model-${m.id}`);
+                    const isHighlighted = highlightedIndex === itemIndex;
+                    return (
+                      <button
+                        key={m.id}
+                        id={`model-${m.id}`}
+                        role="option"
+                        aria-selected={isHighlighted}
+                        type="button"
+                        className={`es-search-item ${isHighlighted ? 'is-highlighted' : ''}`}
+                        onClick={() => {
+                          onNavigate('models');
+                          setSearchQuery('');
+                          setSearchOpen(false);
+                        }}
+                      >
+                        <Box size={13} />
+                        <span>{m.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {matchingIncidents.length > 0 && (
                 <div className="es-search-section">
                   <span className="es-search-section-label">Alerts</span>
-                  {matchingIncidents.map((i) => (
-                    <button
-                      key={i.id}
-                      type="button"
-                      className="es-search-item"
-                      onClick={() => {
-                        onNavigate('alerts');
-                        setSearchQuery('');
-                      }}
-                    >
-                      <AlertTriangle size={13} />
-                      <span>{i.title}</span>
-                    </button>
-                  ))}
+                  {matchingIncidents.map((i) => {
+                    const itemIndex = flatResults.findIndex((r) => r.id === `incident-${i.id}`);
+                    const isHighlighted = highlightedIndex === itemIndex;
+                    return (
+                      <button
+                        key={i.id}
+                        id={`incident-${i.id}`}
+                        role="option"
+                        aria-selected={isHighlighted}
+                        type="button"
+                        className={`es-search-item ${isHighlighted ? 'is-highlighted' : ''}`}
+                        onClick={() => {
+                          onNavigate('alerts');
+                          setSearchQuery('');
+                          setSearchOpen(false);
+                        }}
+                      >
+                        <AlertTriangle size={13} />
+                        <span>{i.title}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {!hasSearchResults && (
-                <div className="es-search-empty">
-                  No registered resources matching &ldquo;{searchQuery}&rdquo;
+                <div className="es-search-empty" role="status">
+                  No local resources matching &ldquo;{searchQuery}&rdquo; • Local catalog filter
                 </div>
               )}
             </div>
@@ -309,7 +418,7 @@ export function TopBar({
             <div className="es-user-dropdown">
               <div className="es-user-dropdown-header">
                 <strong>Alex Carter</strong>
-                <span>Workspace Owner</span>
+                <span>Demo Operator • Local Workspace</span>
               </div>
               <div className="es-dropdown-divider" />
               <button

@@ -15,7 +15,17 @@ import { NodeLiveDetailModal } from '@/components/devices/NodeLiveDetailModal';
 import { RegisterDeviceModal } from '@/components/devices/RegisterDeviceModal';
 import type { PlannedNode } from '@/types';
 
-export function LiveNodesGrid() {
+export interface LiveNodesGridProps {
+  searchTerm?: string;
+  filterState?: 'all' | 'active' | 'awaiting' | 'fault';
+  onClearFilters?: () => void;
+}
+
+export function LiveNodesGrid({
+  searchTerm = '',
+  filterState = 'all',
+  onClearFilters,
+}: LiveNodesGridProps = {}) {
   const { nodes, predictions, isSimulatorRunning, toggleSimulatorRunning, setSelectedNode } = useSimulator();
   const [detailNode, setDetailNode] = useState<PlannedNode | null>(null);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -27,6 +37,34 @@ export function LiveNodesGrid() {
   const registeredCustomNodes = nodes.filter(
     (n) => !['node-nano33-ble', 'node-esp32-max9814', 'node-esp32-adxl345', 'node-esp32-pir-dist', 'node-esp32-env-bme'].includes(n.id)
   );
+
+  const filterNode = (n: PlannedNode) => {
+    if (searchTerm.trim() !== '') {
+      const q = searchTerm.toLowerCase();
+      const match =
+        n.id.toLowerCase().includes(q) ||
+        n.name.toLowerCase().includes(q) ||
+        n.targetMcu.toLowerCase().includes(q) ||
+        n.onboardSensors.some((s) => s.toLowerCase().includes(q)) ||
+        n.intendedTinyML.toLowerCase().includes(q) ||
+        n.role.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+
+    if (filterState === 'active') {
+      return n.integrationState === 'connected' || n.integrationState === 'simulated';
+    }
+    if (filterState === 'awaiting') {
+      return n.integrationState === 'awaiting_integration' || n.integrationState === 'configured';
+    }
+    if (filterState === 'fault') {
+      return n.integrationState === 'fault';
+    }
+    return true;
+  };
+
+  const filteredBaselineNodes = baselineNodes.filter(filterNode);
+  const filteredCustomNodes = registeredCustomNodes.filter(filterNode);
 
   const handleOpenDetail = (node: PlannedNode) => {
     setSelectedNode(node);
@@ -209,16 +247,60 @@ export function LiveNodesGrid() {
               Continuous live inference, feature attribution, and telemetry telemetry for the 5 initial EdgeSphere nodes.
             </p>
           </div>
-          <span className="es-inf-section-count">5 Initial Nodes</span>
+          <span className="es-inf-section-count">
+            {filteredBaselineNodes.length} of 5 Initial Nodes
+          </span>
         </div>
 
-        <div className="es-inference-card-grid">
-          {baselineNodes.map(renderNodeCard)}
-        </div>
+        {filteredBaselineNodes.length === 0 ? (
+          <div
+            style={{
+              padding: '36px 20px',
+              textAlign: 'center',
+              background: '#FFFFFF',
+              border: '1px solid var(--es-border, #E9E9F0)',
+              borderRadius: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--es-text, #17171C)' }}>
+              No inference cards match current filters
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--es-text-secondary, #737487)' }}>
+              Search: &ldquo;{searchTerm || 'none'}&rdquo; • Filter: &ldquo;{filterState}&rdquo;
+            </span>
+            {onClearFilters && (
+              <button
+                type="button"
+                onClick={onClearFilters}
+                style={{
+                  marginTop: 6,
+                  padding: '6px 14px',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  border: '1px solid var(--es-border, #E9E9F0)',
+                  background: 'var(--color-primary-50, #F3F0FF)',
+                  color: 'var(--color-primary-600, #6744E8)',
+                  cursor: 'pointer',
+                }}
+              >
+                Clear Filters & Show All
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="es-inference-card-grid">
+            {filteredBaselineNodes.map(renderNodeCard)}
+          </div>
+        )}
       </div>
 
       {/* Custom Registered Nodes (if any added dynamically via Phase B modal) */}
-      {registeredCustomNodes.length > 0 && (
+      {filteredCustomNodes.length > 0 && (
         <div className="es-inference-grid-wrap" style={{ marginTop: 28 }}>
           <div className="es-inf-section-header">
             <div>
@@ -227,11 +309,11 @@ export function LiveNodesGrid() {
                 User-registered devices dynamically active in the simulator fleet.
               </p>
             </div>
-            <span className="es-inf-section-count">{registeredCustomNodes.length} Registered</span>
+            <span className="es-inf-section-count">{filteredCustomNodes.length} Registered</span>
           </div>
 
           <div className="es-inference-card-grid">
-            {registeredCustomNodes.map(renderNodeCard)}
+            {filteredCustomNodes.map(renderNodeCard)}
           </div>
         </div>
       )}

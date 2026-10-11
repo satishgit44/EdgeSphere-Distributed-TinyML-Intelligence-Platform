@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import {
   AlertTriangle,
   BarChart3,
@@ -13,9 +13,7 @@ import {
   PanelLeftOpen,
   X,
   Zap,
-  ChevronDown,
   Cloud,
-  ChevronRight,
   HelpCircle,
   Activity,
   Layers,
@@ -46,6 +44,11 @@ interface NavItem {
   badge?: string;
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -55,24 +58,53 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
-const mainMenu: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { id: 'devices', label: 'Devices', icon: <Cpu size={18} /> },
-  { id: 'telemetry', label: 'Data Streams', icon: <Radio size={18} /> },
-  { id: 'alerts', label: 'Alerts', icon: <AlertTriangle size={18} />, badge: '1' },
-  { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={18} /> },
-  { id: 'predictive-ai', label: 'Predictive AI (Node 3)', icon: <Activity size={18} /> },
-  { id: 'federated-learning', label: 'Federated Learning', icon: <Layers size={18} /> },
-  { id: 'dynamic-scheduling', label: 'Dynamic Scheduling', icon: <Zap size={18} /> },
-  { id: 'benchmarks', label: 'Engine Benchmarks', icon: <BarChart3 size={18} /> },
-  { id: 'models', label: 'Model Registry', icon: <Box size={18} /> },
-  { id: 'deployments', label: 'Deployments & OTA', icon: <Rocket size={18} /> },
-];
-
-const otherMenu: NavItem[] = [
-  { id: 'team', label: 'Team & Access', icon: <Users size={18} /> },
-  { id: 'reports', label: 'Help & Center', icon: <HelpCircle size={18} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+const navGroups: NavGroup[] = [
+  {
+    label: 'Overview',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} /> },
+    ],
+  },
+  {
+    label: 'Fleet',
+    items: [
+      { id: 'devices', label: 'Devices & Nodes', icon: <Cpu size={17} /> },
+      { id: 'telemetry', label: 'Data Streams', icon: <Radio size={17} /> },
+      { id: 'analytics', label: 'Fleet Analytics', icon: <BarChart3 size={17} /> },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { id: 'predictive-ai', label: 'Predictive AI (Node 3)', icon: <Activity size={17} /> },
+      { id: 'federated-learning', label: 'Federated Learning', icon: <Layers size={17} /> },
+      { id: 'models', label: 'Model Registry', icon: <Box size={17} /> },
+    ],
+  },
+  {
+    label: 'Reliability',
+    items: [
+      { id: 'alerts', label: 'Incidents & Alerts', icon: <AlertTriangle size={17} />, badge: '1' },
+      { id: 'dynamic-scheduling', label: 'Dynamic Scheduling', icon: <Zap size={17} /> },
+    ],
+  },
+  {
+    label: 'Engineering',
+    items: [
+      { id: 'benchmarks', label: 'Engine Benchmarks', icon: <BarChart3 size={17} /> },
+      { id: 'deployments', label: 'Deployments & OTA', icon: <Rocket size={17} /> },
+    ],
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'integrations', label: 'Integrations', icon: <Cloud size={17} /> },
+      { id: 'team', label: 'Team & Access', icon: <Users size={17} /> },
+      { id: 'billing', label: 'Plans & Quotas', icon: <Zap size={17} /> },
+      { id: 'settings', label: 'Settings', icon: <Settings size={17} /> },
+      { id: 'reports', label: 'Help & Center', icon: <HelpCircle size={17} /> },
+    ],
+  },
 ];
 
 export function Sidebar({
@@ -83,8 +115,6 @@ export function Sidebar({
   isCollapsed = false,
   onToggleCollapse,
 }: SidebarProps) {
-  const [integrationsOpen, setIntegrationsOpen] = useState(true);
-
   const handleItemClick = (id: NavRoute) => {
     onNavigate(id);
     onClose();
@@ -158,99 +188,71 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Connexio Workspace Selector Pill */}
+        {/* Workspace Context Badge (Explicitly Non-Interactive Demo Context) */}
         {!isCollapsed && (
-          <div className="es-sidebar-workspace-pill">
-            <div className="es-workspace-avatar">AC</div>
+          <div
+            className="es-sidebar-workspace-pill es-workspace-context-static"
+            role="region"
+            aria-label="Active workspace context"
+            title="Non-interactive workspace context (Simulated Demo)"
+          >
+            <div className="es-workspace-avatar" aria-hidden="true">ES</div>
             <div className="es-workspace-info">
-              <span className="es-workspace-name">Alex Carter</span>
-              <span className="es-workspace-email">alex.carter@edgesphere.local</span>
+              <span className="es-workspace-name">Factory Fleet 01 (Demo)</span>
+              <span className="es-workspace-email">Local Cluster • Non-Auth Context</span>
             </div>
-            <div className="es-workspace-chevrons">
-              <ChevronDown size={14} />
-            </div>
+            <span
+              style={{
+                fontSize: '9.5px',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--color-primary-600)',
+                background: 'var(--color-primary-50)',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                fontWeight: 600,
+              }}
+            >
+              DEMO
+            </span>
           </div>
         )}
 
         {/* Navigation Body */}
-        <nav className="es-sidebar-scroll">
-          {/* Main Menu */}
-          <div className="es-sidebar-group">
-            {!isCollapsed && <span className="es-group-label">Main Menu</span>}
-            <div className="es-nav-list">{mainMenu.map(renderLink)}</div>
-          </div>
-
-          {/* Integrations Tree (Connexio style) */}
-          {!isCollapsed && (
-            <div className="es-sidebar-group">
-              <div
-                className="es-group-label-row"
-                onClick={() => setIntegrationsOpen((p) => !p)}
-                role="button"
-                tabIndex={0}
-              >
-                <span className="es-group-label">Integrations</span>
-                <span className="es-group-toggle">
-                  {integrationsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                </span>
-              </div>
-
-              {integrationsOpen && (
-                <div className="es-tree-sublist">
-                  <button
-                    type="button"
-                    className={`es-tree-item ${currentRoute === 'integrations' ? 'is-active' : ''}`}
-                    onClick={() => handleItemClick('integrations')}
-                  >
-                    <Cloud size={14} />
-                    <span>Eclipse Mosquitto (MQTT)</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="es-tree-item"
-                    onClick={() => handleItemClick('integrations')}
-                  >
-                    <Layers size={14} />
-                    <span>Local Ingest Daemon</span>
-                  </button>
-                </div>
-              )}
+        <nav className="es-sidebar-scroll" aria-label="EdgeSphere sections">
+          {navGroups.map((group) => (
+            <div key={group.label} className="es-sidebar-group">
+              {!isCollapsed && <span className="es-group-label">{group.label}</span>}
+              <div className="es-nav-list">{group.items.map(renderLink)}</div>
             </div>
-          )}
+          ))}
 
-          {/* Connexio "Unlock More Features" Upgrade Card */}
+          {/* Plan & Quota Panel (Explicitly Labeled as Demo Configuration) */}
           {!isCollapsed && (
             <div className="es-sidebar-upgrade-card">
               <div className="es-upgrade-header">
                 <div className="es-upgrade-icon">
                   <Zap size={14} />
                 </div>
-                <strong>Unlock More Features</strong>
+                <strong>Demo Plan Quota</strong>
               </div>
               <p className="es-upgrade-desc">
-                Advanced FFT harmonics, extended telemetry retention, and batch OTA rollouts.
+                Demo Configuration: 5 / 15 simulated nodes. Production server subscription required for fleet scaling.
               </p>
               <div className="es-upgrade-progress-wrap">
                 <div className="es-upgrade-progress-bar">
-                  <div className="es-upgrade-progress-fill" style={{ width: '50%' }} />
+                  <div className="es-upgrade-progress-fill" style={{ width: '33.3%' }} />
                 </div>
-                <div className="es-upgrade-progress-text">5 / 15 Nodes (Free tier)</div>
+                <div className="es-upgrade-progress-text">5 / 15 Nodes Allocated (Configured)</div>
               </div>
               <button
                 type="button"
                 className="es-upgrade-btn"
                 onClick={() => handleItemClick('billing')}
               >
-                Get Premium Access
+                View Plans & Quotas
               </button>
             </div>
           )}
-
-          {/* Other Group */}
-          <div className="es-sidebar-group es-sidebar-group--bottom">
-            {!isCollapsed && <span className="es-group-label">Other</span>}
-            <div className="es-nav-list">{otherMenu.map(renderLink)}</div>
-          </div>
         </nav>
       </aside>
     </>
