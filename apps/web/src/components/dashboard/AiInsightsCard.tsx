@@ -1,8 +1,11 @@
 import { Sparkles } from 'lucide-react';
 import { useSimulator } from '@/context/SimulatorContext';
+import { useNavigation } from '@/context/NavigationContext';
+import { downloadReportJson } from '@/utils/reportExport';
 
 export function AiInsightsCard() {
-  const { nodes } = useSimulator();
+  const { nodes, gateway, pipeline, incidents, models } = useSimulator();
+  const { navigate } = useNavigation();
   const faultNode = nodes.find((n) => n.integrationState === 'fault');
 
   return (
@@ -38,14 +41,25 @@ export function AiInsightsCard() {
           <button
             type="button"
             className="es-nexus-action-pill"
-            onClick={() => alert('Inspecting Node 3 FFT vibration spectra...')}
+            onClick={() => navigate('predictive-ai', { nodeId: 'node-esp32-adxl345' })}
+            title="Navigate to Predictive AI vibration dashboard"
           >
             Inspect Node 3 FFT
           </button>
           <button
             type="button"
             className="es-nexus-action-pill"
-            onClick={() => alert('Downloading edge diagnostic bundle...')}
+            onClick={() =>
+              downloadReportJson({
+                date: new Date().toISOString().split('T')[0],
+                gateway,
+                nodes,
+                pipeline,
+                models,
+                incidents,
+              })
+            }
+            title="Download JSON diagnostics bundle"
           >
             Download diagnostics
           </button>

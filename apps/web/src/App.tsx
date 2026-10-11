@@ -14,13 +14,26 @@ import { TeamPage } from '@/pages/TeamPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { PredictiveAiPage } from '@/pages/PredictiveAiPage';
 import { SimulatorProvider } from '@/context/SimulatorContext';
+import { NavigationProvider } from '@/context/NavigationContext';
+import { useSimulator } from '@/context/SimulatorContext';
 import type { NavRoute } from '@/components/layout/Sidebar';
 
-export function App() {
+function MainContent() {
   const [currentRoute, setCurrentRoute] = useState<NavRoute>('dashboard');
+  const { setSelectedNode, nodes } = useSimulator();
+
+  const handleNavigate = (route: NavRoute, options?: { nodeId?: string }) => {
+    setCurrentRoute(route);
+    if (options?.nodeId) {
+      const target = nodes.find((n) => n.id === options.nodeId);
+      if (target) {
+        setSelectedNode(target);
+      }
+    }
+  };
 
   return (
-    <SimulatorProvider>
+    <NavigationProvider value={{ currentRoute, navigate: handleNavigate }}>
       <AppShell currentRoute={currentRoute} onNavigate={setCurrentRoute}>
         {currentRoute === 'dashboard' && <OverviewDashboard />}
         {currentRoute === 'devices' && <DevicesPage />}
@@ -36,6 +49,14 @@ export function App() {
         {currentRoute === 'team' && <TeamPage />}
         {currentRoute === 'settings' && <SettingsPage />}
       </AppShell>
+    </NavigationProvider>
+  );
+}
+
+export function App() {
+  return (
+    <SimulatorProvider>
+      <MainContent />
     </SimulatorProvider>
   );
 }

@@ -28,7 +28,11 @@ export function UnifiedKpiCards() {
             ↑ Quota: 250
           </span>
         </div>
-        <div className="es-kpi-subtext">5 initial nodes • 250 tier quota (Simulated)</div>
+        <div className="es-kpi-subtext">
+          {nodes.length > 5
+            ? `5 initial nodes • ${nodes.length - 5} registered • 250 tier quota (Simulated)`
+            : '5 initial nodes • 250 tier quota (Simulated)'}
+        </div>
 
         {/* Capsule bars sparkline (Nexus AI reference) */}
         <div className="es-kpi-capsules" aria-hidden="true">

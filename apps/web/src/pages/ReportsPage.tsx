@@ -1,8 +1,89 @@
-import { Download } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
+import { useSimulator } from '@/context/SimulatorContext';
+import {
+  downloadReportJson,
+  downloadReportCsv,
+  downloadReportMarkdown,
+  downloadFile,
+  type ReportDataInput,
+} from '@/utils/reportExport';
+
+import { useState } from 'react';
 
 export function ReportsPage() {
-  const handleDownload = (format: string) => {
-    alert(`Generating EdgeSphere ${format.toUpperCase()} report: Gateway telemetry, Node vibration spectra, and model benchmarks.`);
+  const { nodes, gateway, pipeline, incidents, models } = useSimulator();
+  const [currentDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const reportData: ReportDataInput = {
+    date: currentDate,
+    timezone: 'UTC+05:30 (Asia/Kolkata)',
+    gateway,
+    nodes,
+    pipeline,
+    models,
+    incidents,
+  };
+
+  const handleDownload = (format: 'json' | 'csv' | 'markdown' | 'vibration' | 'gateway') => {
+    switch (format) {
+      case 'json':
+        downloadReportJson(reportData);
+        break;
+      case 'csv':
+        downloadReportCsv(reportData);
+        break;
+      case 'markdown':
+        downloadReportMarkdown(reportData);
+        break;
+      case 'vibration': {
+        const vibrationContent = `# EdgeSphere Node 3 Vibration & FFT Diagnostics Audit
+**Date:** ${currentDate}
+**Node:** Node 3 (ESP32 + ADXL345)
+**MCU:** Espressif ESP32-WROOM-32D @ 240MHz
+**Sensor:** Analog Devices ADXL345 (3-Axis Accelerometer, ±16g, 3200Hz)
+**Bus:** SPI @ 5MHz (MOSI: GPIO23, MISO: GPIO19, SCK: GPIO18, CS: GPIO5)
+**Status:** Nominal Baseline
+**RMS Acceleration:** 0.018g RMS
+**Peak Frequency:** 124.6 Hz
+**Spectral Power Density:** Flat harmonic distribution below ISO 10816-3 Class I threshold (0.080g)
+**Active Model:** tinyml-bearing-vibe-v1.0.0.tflite (INT8, 14.8 KB Flash, 6.4ms inference)
+
+*Classification: Simulated local telemetry test harness.*
+`;
+        downloadFile(
+          vibrationContent,
+          `edgesphere-node3-vibration-audit-${currentDate}.md`,
+          'text/markdown;charset=utf-8;'
+        );
+        break;
+      }
+      case 'gateway': {
+        const gatewayContent = `# EdgeSphere Raspberry Pi 5 Gateway Telemetry Audit
+**Date:** ${currentDate}
+**Host:** ${gateway.hardwareModel}
+**OS:** ${gateway.os}
+**Uptime:** ${Math.floor(gateway.uptimeSeconds / 3600)}h ${Math.floor((gateway.uptimeSeconds % 3600) / 60)}m
+**CPU Load:** ${gateway.cpuLoadPct.toFixed(1)}%
+**Core Thermals:** ${gateway.thermalTempC.toFixed(1)}°C
+**Memory:** ${gateway.ramUsageMb} MB / ${gateway.ramTotalMb} MB
+**Storage:** ${gateway.storageUsageGb} GB / ${gateway.storageTotalGb} GB
+**Ingestion Rate:** ${pipeline.ingestionRatePerSec.toFixed(1)} msg/s
+**Total Packets:** ${pipeline.messagesReceivedTotal}
+**Packet Drops:** ${pipeline.droppedPacketsCount}
+
+### Managed Edge Services
+${gateway.services.map((s) => `- **${s.name}**: ${s.status.toUpperCase()} (${s.role})`).join('\n')}
+
+*Classification: Simulated local daemon telemetry.*
+`;
+        downloadFile(
+          gatewayContent,
+          `edgesphere-rpi5-gateway-audit-${currentDate}.md`,
+          'text/markdown;charset=utf-8;'
+        );
+        break;
+      }
+    }
   };
 
   return (
@@ -20,11 +101,12 @@ export function ReportsPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="es-nexus-pill active"
             onClick={() => handleDownload('json')}
+            title="Download structured JSON report"
           >
             <Download size={13} /> Export JSON
           </button>
@@ -32,8 +114,17 @@ export function ReportsPage() {
             type="button"
             className="es-nexus-pill active"
             onClick={() => handleDownload('csv')}
+            title="Download tabular CSV report"
           >
             <Download size={13} /> Export CSV
+          </button>
+          <button
+            type="button"
+            className="es-nexus-pill active"
+            onClick={() => handleDownload('markdown')}
+            title="Download Markdown summary report"
+          >
+            <FileText size={13} /> Export Markdown
           </button>
         </div>
       </div>
@@ -51,9 +142,9 @@ export function ReportsPage() {
               <button
                 type="button"
                 className="es-nexus-action-button-primary"
-                onClick={() => handleDownload('pdf')}
+                onClick={() => handleDownload('vibration')}
               >
-                Download Vibration Audit (PDF)
+                Download Vibration Audit (Markdown)
               </button>
             </div>
           </div>
@@ -71,9 +162,9 @@ export function ReportsPage() {
               <button
                 type="button"
                 className="es-nexus-action-button-primary"
-                onClick={() => handleDownload('pdf')}
+                onClick={() => handleDownload('gateway')}
               >
-                Download Gateway Audit (PDF)
+                Download Gateway Audit (Markdown)
               </button>
             </div>
           </div>

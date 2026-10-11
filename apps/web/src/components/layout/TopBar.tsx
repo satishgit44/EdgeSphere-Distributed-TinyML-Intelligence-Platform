@@ -257,7 +257,17 @@ export function TopBar({
               </div>
               <div className="es-dropdown-body">
                 {incidents.slice(0, 3).map((inc) => (
-                  <div key={inc.id} className="es-notif-row">
+                  <div
+                    key={inc.id}
+                    className="es-notif-row"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      onNavigate('alerts');
+                      setNotificationsOpen(false);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
                     <span className="es-notif-dot" />
                     <div>
                       <div className="es-notif-title">{inc.title}</div>

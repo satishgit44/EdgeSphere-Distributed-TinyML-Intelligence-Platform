@@ -60,18 +60,43 @@ const INITIAL_DEVICES: DeviceItem[] = [
   },
 ];
 
+import { RegisterDeviceModal } from '@/components/devices/RegisterDeviceModal';
+
 export function UnifiedDevicesTable({ onRegisterClick }: { onRegisterClick?: () => void }) {
-  const { setSelectedNode, nodes } = useSimulator();
+  const { setSelectedNode, nodes, customDeviceMeta } = useSimulator();
   const [search, setSearch] = useState('');
-  const [deviceList, setDeviceList] = useState<DeviceItem[]>(INITIAL_DEVICES);
+  const [powerOverrides, setPowerOverrides] = useState<Record<string, boolean>>({});
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+
+  // Combine initial 5 baseline devices with any dynamically registered nodes
+  const allDevices: DeviceItem[] = [
+    ...INITIAL_DEVICES,
+    ...nodes
+      .filter((n) => !INITIAL_DEVICES.some((d) => d.id === n.id))
+      .map((n) => ({
+        id: n.id,
+        name: n.name,
+        type: n.role,
+        status: (n.integrationState === 'connected' || n.integrationState === 'simulated'
+          ? 'Online'
+          : 'Degraded') as 'Online' | 'Degraded',
+        location: customDeviceMeta[n.id]?.location || 'Facility B',
+        isOn: customDeviceMeta[n.id]?.isOn ?? false,
+        icon: (customDeviceMeta[n.id]?.icon || 'cpu') as DeviceItem['icon'],
+      })),
+  ].map((d) => ({
+    ...d,
+    isOn: powerOverrides[d.id] !== undefined ? powerOverrides[d.id] : d.isOn,
+  }));
 
   const toggleDevice = (id: string) => {
-    setDeviceList((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, isOn: !d.isOn } : d))
-    );
+    setPowerOverrides((prev) => ({
+      ...prev,
+      [id]: prev[id] !== undefined ? !prev[id] : !allDevices.find((d) => d.id === id)?.isOn,
+    }));
   };
 
-  const filtered = deviceList.filter(
+  const filtered = allDevices.filter(
     (d) =>
       d.name.toLowerCase().includes(search.toLowerCase()) ||
       d.type.toLowerCase().includes(search.toLowerCase()) ||
@@ -91,33 +116,42 @@ export function UnifiedDevicesTable({ onRegisterClick }: { onRegisterClick?: () 
     }
   };
 
+  const handleRegisterClick = () => {
+    if (onRegisterClick) {
+      onRegisterClick();
+    } else {
+      setIsRegisterModalOpen(true);
+    }
+  };
+
   return (
-    <article className="es-devices-status-panel">
-      <div className="es-devices-panel-header">
-        <h3 className="es-panel-title">Devices Status</h3>
+    <>
+      <article className="es-devices-status-panel">
+        <div className="es-devices-panel-header">
+          <h3 className="es-panel-title">Devices Status</h3>
 
-        <div className="es-devices-header-actions">
-          <div className="es-devices-search-wrap">
-            <Search size={13} className="es-devices-search-icon" />
-            <input
-              type="search"
-              className="es-devices-search-input"
-              placeholder="Search Devices…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="es-devices-header-actions">
+            <div className="es-devices-search-wrap">
+              <Search size={13} className="es-devices-search-icon" />
+              <input
+                type="search"
+                className="es-devices-search-input"
+                placeholder="Search Devices…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="es-btn-primary-blue"
+              onClick={handleRegisterClick}
+            >
+              <Plus size={14} />
+              <span>New Devices</span>
+            </button>
           </div>
-
-          <button
-            type="button"
-            className="es-btn-primary-blue"
-            onClick={onRegisterClick || (() => alert('Open Device Registration Wizard'))}
-          >
-            <Plus size={14} />
-            <span>New Devices</span>
-          </button>
         </div>
-      </div>
 
       <div className="es-table-responsive">
         <table className="es-unified-table">
@@ -180,5 +214,11 @@ export function UnifiedDevicesTable({ onRegisterClick }: { onRegisterClick?: () 
         </table>
       </div>
     </article>
+
+    <RegisterDeviceModal
+      isOpen={isRegisterModalOpen}
+      onClose={() => setIsRegisterModalOpen(false)}
+    />
+  </>
   );
 }

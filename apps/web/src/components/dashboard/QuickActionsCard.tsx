@@ -1,8 +1,22 @@
 import { Plus, Wrench, Rocket, Download } from 'lucide-react';
 import { useSimulator } from '@/context/SimulatorContext';
+import { useNavigation } from '@/context/NavigationContext';
+import { downloadReportJson } from '@/utils/reportExport';
 
 export function QuickActionsCard() {
-  const { transmitSingleBurst } = useSimulator();
+  const { transmitSingleBurst, nodes, gateway, pipeline, incidents, models } = useSimulator();
+  const { navigate } = useNavigation();
+
+  const handleExportReport = () => {
+    downloadReportJson({
+      date: new Date().toISOString().split('T')[0],
+      gateway,
+      nodes,
+      pipeline,
+      models,
+      incidents,
+    });
+  };
 
   return (
     <article className="es-nexus-card es-nexus-rail-card">
@@ -18,6 +32,7 @@ export function QuickActionsCard() {
             type="button"
             className="es-nexus-action-btn"
             onClick={transmitSingleBurst}
+            title="Inject simulated MQTT telemetry burst"
           >
             <Plus size={13} />
             <span>Telemetry burst</span>
@@ -26,7 +41,8 @@ export function QuickActionsCard() {
           <button
             type="button"
             className="es-nexus-action-btn"
-            onClick={() => alert('Diagnostics triggered: Gateway CPU normal (14%), Mosquitto operational, ring buffer valid.')}
+            onClick={() => navigate('integrations')}
+            title="Navigate to Gateway Diagnostics & Local Ingestion"
           >
             <Wrench size={13} />
             <span>Run diagnostics</span>
@@ -35,7 +51,8 @@ export function QuickActionsCard() {
           <button
             type="button"
             className="es-nexus-action-btn"
-            onClick={() => alert('Model deployment queued: TFLite Micro INT8 runtime ready for Node 3.')}
+            onClick={() => navigate('deployments')}
+            title="Navigate to Model Deployments & OTA Coordinator"
           >
             <Rocket size={13} />
             <span>Deploy model</span>
@@ -44,7 +61,8 @@ export function QuickActionsCard() {
           <button
             type="button"
             className="es-nexus-action-btn"
-            onClick={() => alert('Exporting PDF/JSON edge performance report...')}
+            onClick={handleExportReport}
+            title="Download JSON telemetry and fleet report"
           >
             <Download size={13} />
             <span>Export report</span>

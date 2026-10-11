@@ -7,8 +7,11 @@ import {
   ExternalLink,
   ShieldAlert,
   Info,
+  AlertCircle,
 } from 'lucide-react';
 import { useSimulator } from '@/context/SimulatorContext';
+import { useNavigation } from '@/context/NavigationContext';
+import type { NavRoute } from '@/components/layout/Sidebar';
 import type { ChatMessage } from '@/types';
 
 interface ExplainableAiChatProps {
@@ -16,6 +19,35 @@ interface ExplainableAiChatProps {
   onClose: () => void;
   initialPrompt?: string;
 }
+
+const VALID_ROUTES: Record<string, NavRoute> = {
+  '/dashboard': 'dashboard',
+  '/devices': 'devices',
+  '/telemetry': 'telemetry',
+  '/alerts': 'alerts',
+  '/analytics': 'analytics',
+  '/predictive-ai': 'predictive-ai',
+  '/models': 'models',
+  '/deployments': 'deployments',
+  '/reports': 'reports',
+  '/integrations': 'integrations',
+  '/billing': 'billing',
+  '/team': 'team',
+  '/settings': 'settings',
+  dashboard: 'dashboard',
+  devices: 'devices',
+  telemetry: 'telemetry',
+  alerts: 'alerts',
+  analytics: 'analytics',
+  'predictive-ai': 'predictive-ai',
+  models: 'models',
+  deployments: 'deployments',
+  reports: 'reports',
+  integrations: 'integrations',
+  billing: 'billing',
+  team: 'team',
+  settings: 'settings',
+};
 
 const STARTER_PROMPTS = [
   "Summarize today's fleet health.",
@@ -44,6 +76,9 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 
 export function ExplainableAiChatDrawer({ isOpen, onClose, initialPrompt }: ExplainableAiChatProps) {
   const { nodes, gateway, pipeline, incidents } = useSimulator();
+  const { navigate } = useNavigation();
+  const [navigationNotice, setNavigationNotice] = useState<string | null>(null);
+
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialPrompt) {
       return [
@@ -62,6 +97,37 @@ export function ExplainableAiChatDrawer({ isOpen, onClose, initialPrompt }: Expl
   const [isThinking, setIsThinking] = useState(false);
 
   const faultNode = nodes.find((n) => n.integrationState === 'fault');
+
+  const handleEvidenceClick = useCallback(
+    (ev: { title: string; target: string; value?: string }) => {
+      const route = VALID_ROUTES[ev.target] || VALID_ROUTES[ev.target.toLowerCase()];
+      if (route) {
+        let targetNodeId: string | undefined;
+        const lowerTitle = ev.title.toLowerCase();
+        const lowerVal = (ev.value || '').toLowerCase();
+        if (lowerTitle.includes('node 3') || lowerTitle.includes('adxl') || lowerVal.includes('adxl')) {
+          targetNodeId = 'node-esp32-adxl345';
+        } else if (lowerTitle.includes('nano 33')) {
+          targetNodeId = 'node-nano33-ble';
+        } else if (lowerTitle.includes('node 2') || lowerTitle.includes('max9814')) {
+          targetNodeId = 'node-esp32-max9814';
+        } else if (lowerTitle.includes('node 4') || lowerTitle.includes('pir')) {
+          targetNodeId = 'node-esp32-pir-dist';
+        } else if (lowerTitle.includes('node 5') || lowerTitle.includes('mq135')) {
+          targetNodeId = 'node-esp32-env-bme';
+        }
+
+        navigate(route, { nodeId: targetNodeId });
+        onClose();
+      } else {
+        setNavigationNotice(`Target resource "${ev.target}" is not reachable in local offline mode.`);
+        setTimeout(() => {
+          setNavigationNotice(null);
+        }, 4000);
+      }
+    },
+    [navigate, onClose]
+  );
 
   const handleSendPrompt = useCallback((promptText: string) => {
     if (!promptText.trim()) return;
@@ -177,6 +243,28 @@ export function ExplainableAiChatDrawer({ isOpen, onClose, initialPrompt }: Expl
         <span className="es-chat-context-chip">Mode: Local TFLite</span>
       </div>
 
+      {navigationNotice && (
+        <div
+          className="es-chat-nav-notice"
+          role="status"
+          style={{
+            padding: '10px 14px',
+            margin: '8px 16px 0',
+            borderRadius: '8px',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FCA5A5',
+            color: '#B91C1C',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <AlertCircle size={14} style={{ flexShrink: 0 }} />
+          <span>{navigationNotice}</span>
+        </div>
+      )}
+
       {/* Message Stream */}
       <div className="es-chat-stream">
         {messages.map((m) => (
@@ -202,7 +290,7 @@ export function ExplainableAiChatDrawer({ isOpen, onClose, initialPrompt }: Expl
                       className="es-chat-evidence-link"
                       onClick={(e) => {
                         e.preventDefault();
-                        alert(`Navigating to verified edge record: ${ev.title} (${ev.value})`);
+                        handleEvidenceClick(ev);
                       }}
                     >
                       <ExternalLink size={11} />

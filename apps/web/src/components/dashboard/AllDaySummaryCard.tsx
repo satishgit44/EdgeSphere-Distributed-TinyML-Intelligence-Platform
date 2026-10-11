@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { Sparkles, RefreshCw, Copy, Download, Check, ChevronDown, ChevronUp, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useSimulator } from '@/context/SimulatorContext';
+import { useNavigation } from '@/context/NavigationContext';
+import type { NavRoute } from '@/components/layout/Sidebar';
+import { downloadReportMarkdown } from '@/utils/reportExport';
 import type { DailySummary } from '@/types';
 
 export function AllDaySummaryCard() {
   const { nodes, gateway, pipeline, incidents, models } = useSimulator();
+  const { navigate } = useNavigation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -139,8 +143,19 @@ export function AllDaySummaryCard() {
           <button
             type="button"
             className="es-summary-btn"
-            onClick={() => alert('Exporting full Markdown & PDF summary bundle...')}
-            title="Export summary bundle"
+            onClick={() =>
+              downloadReportMarkdown({
+                date: selectedDate,
+                timezone: summary.timezone,
+                gateway,
+                nodes,
+                pipeline,
+                models,
+                incidents,
+                dailySummary: summary,
+              })
+            }
+            title="Export Markdown summary report"
           >
             <Download size={13} />
             <span>Export</span>
@@ -207,7 +222,19 @@ export function AllDaySummaryCard() {
             <strong className="es-summary-recs-title">Prioritized Next Actions</strong>
             <div className="es-summary-recs-list">
               {summary.recommendations.map((rec, idx) => (
-                <div key={idx} className={`es-summary-rec-item is-${rec.priority}`}>
+                <div
+                  key={idx}
+                  className={`es-summary-rec-item is-${rec.priority}`}
+                  style={{ cursor: rec.link ? 'pointer' : 'default' }}
+                  onClick={() => {
+                    if (rec.link) {
+                      const route = rec.link.replace(/^\//, '') as NavRoute;
+                      navigate(route);
+                    }
+                  }}
+                  role={rec.link ? 'button' : undefined}
+                  tabIndex={rec.link ? 0 : undefined}
+                >
                   <span className={`es-summary-rec-badge is-${rec.priority}`}>{rec.priority.toUpperCase()}</span>
                   <span className="es-summary-rec-text">{rec.action}</span>
                 </div>

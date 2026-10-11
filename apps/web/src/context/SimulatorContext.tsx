@@ -19,6 +19,17 @@ import {
   DEFAULT_LOG_EVENTS,
 } from '@/data/simulator';
 
+export interface DeviceMeta {
+  location: string;
+  isOn: boolean;
+  icon: 'fan' | 'cpu' | 'mic' | 'vibration' | 'motion' | 'air';
+}
+
+export interface RegisterNodeResult {
+  success: boolean;
+  error?: string;
+}
+
 interface SimulatorContextValue {
   gateway: EdgeGateway;
   nodes: PlannedNode[];
@@ -30,6 +41,7 @@ interface SimulatorContextValue {
   isSimulatorRunning: boolean;
   isFreshInstall: boolean;
   selectedNode: PlannedNode | null;
+  customDeviceMeta: Record<string, DeviceMeta>;
   setSelectedNode: (node: PlannedNode | null) => void;
   resetToFreshInstall: () => void;
   startSimulatorFleet: () => void;
@@ -37,6 +49,7 @@ interface SimulatorContextValue {
   injectSensorFault: (nodeId?: string) => void;
   resolveIncident: (id: string) => void;
   transmitSingleBurst: () => void;
+  registerNode: (node: PlannedNode, meta?: Partial<DeviceMeta>) => RegisterNodeResult;
 }
 
 /* oxlint-disable react/only-export-components */
@@ -54,12 +67,14 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
   const [incidents, setIncidents] = useState<EdgeIncident[]>(DEFAULT_INCIDENTS_ACTIVE);
   const [logs, setLogs] = useState<OperationalLogEvent[]>(DEFAULT_LOG_EVENTS);
   const [selectedNode, setSelectedNode] = useState<PlannedNode | null>(null);
+  const [customDeviceMeta, setCustomDeviceMeta] = useState<Record<string, DeviceMeta>>({});
 
   /* Reset to completely fresh install (Empty state requirement!) */
   const resetToFreshInstall = useCallback(() => {
     setIsFreshInstall(true);
     setIsSimulatorRunning(false);
     setGateway(DEFAULT_GATEWAY_UNCONFIGURED);
+    setCustomDeviceMeta({});
     setNodes(
       DEFAULT_PLANNED_NODES.map((n) => ({
         ...n,
@@ -89,6 +104,7 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
     setIsSimulatorRunning(true);
     setGateway(DEFAULT_GATEWAY_ACTIVE);
     setNodes(DEFAULT_PLANNED_NODES);
+    setCustomDeviceMeta({});
     setPipeline(DEFAULT_PIPELINE_ACTIVE);
     setIncidents(DEFAULT_INCIDENTS_ACTIVE);
     setLogs((prev) => [
@@ -234,6 +250,49 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
     ]);
   }, [isFreshInstall]);
 
+  /* Register a new edge node (Phase B: Real in-memory frontend registration) */
+  const registerNode = useCallback(
+    (newNode: PlannedNode, meta?: Partial<DeviceMeta>): RegisterNodeResult => {
+      const trimmedId = newNode.id?.trim();
+      const trimmedName = newNode.name?.trim();
+
+      if (!trimmedId) {
+        return { success: false, error: 'Device ID is required.' };
+      }
+      if (!trimmedName) {
+        return { success: false, error: 'Device name is required.' };
+      }
+      // Check for duplicate ID case-insensitively across existing nodes
+      if (nodes.some((n) => n.id.toLowerCase() === trimmedId.toLowerCase())) {
+        return { success: false, error: `Device ID "${trimmedId}" already exists in the fleet registry.` };
+      }
+
+      setNodes((prev) => [...prev, newNode]);
+      setCustomDeviceMeta((prev) => ({
+        ...prev,
+        [newNode.id]: {
+          location: meta?.location?.trim() || 'Unassigned Facility',
+          isOn: meta?.isOn ?? false,
+          icon: meta?.icon || 'cpu',
+        },
+      }));
+
+      setLogs((prev) => [
+        {
+          id: `evt-reg-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          severity: 'info',
+          source: 'device-registry',
+          message: `Registered new node: ${newNode.name} (${newNode.id}) marked as ${newNode.integrationState}.`,
+        },
+        ...prev,
+      ]);
+
+      return { success: true };
+    },
+    [nodes]
+  );
+
   return (
     <SimulatorContext.Provider
       value={{
@@ -247,6 +306,7 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
         isSimulatorRunning,
         isFreshInstall,
         selectedNode,
+        customDeviceMeta,
         setSelectedNode,
         resetToFreshInstall,
         startSimulatorFleet,
@@ -254,6 +314,7 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
         injectSensorFault,
         resolveIncident,
         transmitSingleBurst,
+        registerNode,
       }}
     >
       {children}

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { UnifiedKpiCards } from '@/components/dashboard/UnifiedKpiCards';
 import { UnifiedAnalyticsGrid } from '@/components/dashboard/UnifiedAnalyticsGrid';
 import { AllDaySummaryCard } from '@/components/dashboard/AllDaySummaryCard';
@@ -10,11 +9,8 @@ import { AiInsightsCard } from '@/components/dashboard/AiInsightsCard';
 import { TopNodesCard } from '@/components/dashboard/TopNodesCard';
 import { HardwareTopologySection } from '@/components/dashboard/HardwareTopologySection';
 import { NodeDetailModal } from '@/components/dashboard/NodeDetailModal';
-import { ExplainableAiChatDrawer, FloatingAiChatButton } from '@/components/chat/ExplainableAiChatDrawer';
 
 export function OverviewDashboard() {
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-
   return (
     <div className="es-overview-unified-page">
       {/* 1. Four Unified KPI Cards in One Row (Connexio + Nexus AI) */}
@@ -56,10 +52,6 @@ export function OverviewDashboard() {
 
       {/* 7. Node Detail Inspection Modal */}
       <NodeDetailModal />
-
-      {/* 8. Persistent Floating AI Chat Button & Drawer */}
-      <FloatingAiChatButton onClick={() => setAiChatOpen(true)} />
-      <ExplainableAiChatDrawer isOpen={aiChatOpen} onClose={() => setAiChatOpen(false)} />
     </div>
   );
 }
