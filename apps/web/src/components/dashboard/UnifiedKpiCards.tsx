@@ -23,12 +23,12 @@ export function UnifiedKpiCards() {
         </div>
 
         <div className="es-kpi-metric-row">
-          <span className="es-kpi-big-num">{isFreshInstall ? '00' : '250'}</span>
+          <span className="es-kpi-big-num">{isFreshInstall ? '00' : String(nodes.length).padStart(2, '0')}</span>
           <span className="es-kpi-trend-pill is-positive">
-            &uarr; +12% from last month
+            ↑ Quota: 250
           </span>
         </div>
-        <div className="es-kpi-subtext">5 initial nodes &bull; extensible registry</div>
+        <div className="es-kpi-subtext">5 initial nodes • 250 tier quota (Simulated)</div>
 
         {/* Capsule bars sparkline (Nexus AI reference) */}
         <div className="es-kpi-capsules" aria-hidden="true">
@@ -51,12 +51,12 @@ export function UnifiedKpiCards() {
         </div>
 
         <div className="es-kpi-metric-row">
-          <span className="es-kpi-big-num">{isFreshInstall ? '00' : (faultCount > 0 ? '184' : '189')}</span>
+          <span className="es-kpi-big-num">{isFreshInstall ? '00' : String(onlineCount).padStart(2, '0')}</span>
           <span className="es-kpi-trend-pill is-blue">
-            <Wifi size={11} style={{ marginRight: 3 }} /> 93.5% Uptime
+            <Wifi size={11} style={{ marginRight: 3 }} /> {faultCount > 0 ? '80.0% Nominal' : '100% Uptime'}
           </span>
         </div>
-        <div className="es-kpi-subtext">{onlineCount} connected &bull; 0 offline</div>
+        <div className="es-kpi-subtext">{onlineCount} connected • {nodes.length - onlineCount} offline (Simulated)</div>
 
         <div className="es-kpi-capsules" aria-hidden="true">
           {[25, 40, 60, 75, 50, 95, 70, 80, 85].map((h, i) => (
@@ -78,12 +78,12 @@ export function UnifiedKpiCards() {
         </div>
 
         <div className="es-kpi-metric-row">
-          <span className="es-kpi-big-num">{isFreshInstall ? '0 B' : '1.2TB'}</span>
+          <span className="es-kpi-big-num">{isFreshInstall ? '0 B' : '1.2 GB'}</span>
           <span className="es-kpi-trend-pill is-orange">
-            &bull; 78% of quota
+            • 78% of quota
           </span>
         </div>
-        <div className="es-kpi-subtext">{pipeline.ingestionRatePerSec.toFixed(1)} msg/s &bull; Mosquitto ring active</div>
+        <div className="es-kpi-subtext">{pipeline.ingestionRatePerSec.toFixed(1)} msg/s • Mosquitto ring active (Simulated)</div>
 
         <div className="es-kpi-capsules" aria-hidden="true">
           {[20, 35, 50, 65, 80, 90, 85, 70, 95].map((h, i) => (
@@ -105,12 +105,12 @@ export function UnifiedKpiCards() {
         </div>
 
         <div className="es-kpi-metric-row">
-          <span className="es-kpi-big-num">{openIncidents.length === 0 ? '00' : '12'}</span>
-          <span className={`es-kpi-trend-pill ${faultCount > 0 ? 'is-danger' : 'is-positive'}`}>
-            {faultCount > 0 ? '&Delta; 2 Critical issue' : 'Nominal mesh'}
+          <span className="es-kpi-big-num">{isFreshInstall ? '00' : String(openIncidents.length).padStart(2, '0')}</span>
+          <span className={`es-kpi-trend-pill ${faultCount > 0 ? 'is-danger' : (openIncidents.length > 0 ? 'is-orange' : 'is-positive')}`}>
+            {faultCount > 0 ? `Δ ${faultCount} Critical issue` : (openIncidents.length > 0 ? 'Δ 1 Warning' : 'Nominal mesh')}
           </span>
         </div>
-        <div className="es-kpi-subtext">{faultCount ? `${faultCount} node flagged &bull; check vibration` : '0 critical faults &bull; 1 warning'}</div>
+        <div className="es-kpi-subtext">{faultCount ? `${faultCount} node flagged • check vibration` : (openIncidents.length > 0 ? '1 active incident • investigating' : '0 critical faults • 1 warning')} (Simulated)</div>
 
         <div className="es-kpi-capsules" aria-hidden="true">
           {[15, 25, 30, 20, 28, 22, 18, 30, 25].map((h, i) => (

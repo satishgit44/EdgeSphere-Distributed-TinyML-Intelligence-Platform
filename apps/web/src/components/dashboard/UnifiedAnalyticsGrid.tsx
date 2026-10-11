@@ -148,7 +148,7 @@ export function UnifiedAnalyticsGrid() {
           {/* Popover Pin over peak */}
           <div className="es-temp-popover">
             <span>Celsius</span>
-            <strong>26°C &bull; 0.018g</strong>
+            <strong>26°C • 0.018g</strong>
           </div>
 
           <ResponsiveContainer width="100%" height="100%">
@@ -203,8 +203,8 @@ export function UnifiedAnalyticsGrid() {
           {/* Popover Legend on right */}
           <div className="es-energy-popover">
             <div className="es-pop-date">Jun, 2026</div>
-            <div className="es-pop-row"><span className="es-dot-blue" /> 75 kWh &bull; 9.4 ms <span className="is-pos">&uarr; 12</span></div>
-            <div className="es-pop-row"><span className="es-dot-dark" /> 32 kWh &bull; 4.2 ms <span className="is-pos">&darr; 12</span></div>
+            <div className="es-pop-row"><span className="es-dot-blue" /> 75 kWh • 9.4 ms <span className="is-pos">↑ 12</span></div>
+            <div className="es-pop-row"><span className="es-dot-dark" /> 32 kWh • 4.2 ms <span className="is-pos">↓ 12</span></div>
           </div>
 
           <ResponsiveContainer width="100%" height="100%">

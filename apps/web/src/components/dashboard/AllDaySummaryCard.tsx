@@ -105,7 +105,7 @@ export function AllDaySummaryCard() {
           <div>
             <h3 className="es-summary-title">Today&apos;s EdgeSphere Summary</h3>
             <p className="es-summary-subtitle">
-              Comprehensive 24-hour fleet audit &bull; Window: 00:00 &ndash; 23:59 ({summary.timezone})
+              Comprehensive 24-hour fleet audit • Window: 00:00 – 23:59 ({summary.timezone})
             </p>
           </div>
         </div>

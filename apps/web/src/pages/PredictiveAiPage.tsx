@@ -85,7 +85,7 @@ export function PredictiveAiPage() {
             <span className="es-kpi-trend-pill is-blue">ISO 10816-3 Class I</span>
           </div>
           <div style={{ fontSize: '11.5px', color: '#737487', marginTop: 4 }}>
-            Threshold: 0.080g &bull; Sampling rate: 3.2 kHz SPI
+            Threshold: 0.080g • Sampling rate: 3.2 kHz SPI
           </div>
         </article>
 

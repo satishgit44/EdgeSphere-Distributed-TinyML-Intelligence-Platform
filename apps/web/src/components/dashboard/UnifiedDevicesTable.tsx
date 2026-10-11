@@ -14,15 +14,6 @@ interface DeviceItem {
 
 const INITIAL_DEVICES: DeviceItem[] = [
   {
-    id: 'dev-fan',
-    name: 'Industrial Fan (Motor)',
-    type: 'Ventilation & Motor Drive',
-    status: 'Online',
-    location: 'Factory Floor A',
-    isOn: true,
-    icon: 'fan',
-  },
-  {
     id: 'node-nano33-ble',
     name: 'Node 1: Arduino Nano 33 BLE Sense',
     type: 'IMU Motion & Gesture TFLite',
@@ -42,8 +33,8 @@ const INITIAL_DEVICES: DeviceItem[] = [
   },
   {
     id: 'node-esp32-adxl345',
-    name: 'Node 3: ESP32 + ADXL345',
-    type: 'Motor Vibration FFT Anomaly',
+    name: 'Node 3: ESP32 + ADXL345 (Motor Spindle Drive)',
+    type: 'Motor Vibration FFT & Predictive Maintenance',
     status: 'Online',
     location: 'Primary Spindle Bearing',
     isOn: true,

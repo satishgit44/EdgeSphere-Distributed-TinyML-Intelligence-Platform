@@ -261,7 +261,7 @@ export function TopBar({
                     <span className="es-notif-dot" />
                     <div>
                       <div className="es-notif-title">{inc.title}</div>
-                      <div className="es-notif-sub">{inc.severity} &bull; {inc.nodeId || 'gateway'}</div>
+                      <div className="es-notif-sub">{inc.severity} • {inc.nodeId || 'gateway'}</div>
                     </div>
                   </div>
                 ))}
