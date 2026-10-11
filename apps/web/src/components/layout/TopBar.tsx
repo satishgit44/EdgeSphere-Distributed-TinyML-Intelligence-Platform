@@ -44,6 +44,18 @@ const routeTitles: Record<NavRoute, { title: string; subtitle: string }> = {
     title: 'Predictive AI (Node 3)',
     subtitle: 'ADXL345 motor vibration FFT spectra, feature importance, and wear forecasts',
   },
+  'federated-learning': {
+    title: 'Federated Learning',
+    subtitle: 'Simulated FedAvg parameter aggregation and on-device training convergence',
+  },
+  'dynamic-scheduling': {
+    title: 'Dynamic Scheduling',
+    subtitle: 'Edge Gateway workload allocation, latency/energy tradeoffs, and failover',
+  },
+  benchmarks: {
+    title: 'Engine Benchmarks',
+    subtitle: 'Comparative latency, footprint, and accuracy across TFLite, EON, and CMSIS-NN',
+  },
   models: {
     title: 'Model Registry',
     subtitle: 'TFLite Micro INT8 artifacts, flash/RAM footprints, and SHA256 signatures',

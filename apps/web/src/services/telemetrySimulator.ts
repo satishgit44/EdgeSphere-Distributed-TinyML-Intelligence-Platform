@@ -48,6 +48,12 @@ export interface LivePrediction {
   explanation: string;
   inferenceType: 'Simulated Rule-Based TinyML Inference';
   timestamp: string;
+  engine: string;
+  executionStatus: 'Simulated Rule-Based' | 'Compiled TFLite Micro' | 'Hardware Native';
+  rssiDbm: number;
+  batteryVoltage: number;
+  batteryPct: number;
+  contributingFeatures: Array<{ label: string; value: string | number; impact: 'primary' | 'secondary' | 'neutral' }>;
 }
 
 export interface FftHarmonic {
@@ -335,67 +341,138 @@ export class TelemetrySimulator {
 
     for (const node of nodes) {
       if (node.id === 'node-nano33-ble') {
+        const ax = Number(node.recentSignals?.accel_x ?? 0.042);
+        const ay = Number(node.recentSignals?.accel_y ?? -0.981);
+        const az = Number(node.recentSignals?.accel_z ?? 0.124);
+        const spl = Number(node.recentSignals?.sound_spl_db ?? 54.2);
+        const motionMagnitude = Math.sqrt(ax * ax + ay * ay + az * az);
+        const isDynamic = Math.abs(motionMagnitude - 1.0) > 0.08;
+
         preds[node.id] = {
           nodeId: node.id,
           modelId: 'kws-speech-micro-v0.4.tflite',
-          predictionClass: 'nominal_motion',
-          confidence: 0.94,
-          latencyMs: 7.2,
+          predictionClass: isDynamic ? 'dynamic_gesture_swipe' : 'nominal_motion',
+          confidence: +(0.92 + Math.sin(this.driftPhase * 0.8) * 0.04).toFixed(2),
+          latencyMs: +(7.2 + Math.cos(this.driftPhase) * 0.6).toFixed(1),
           anomalyScore: 0.02,
-          explanation: '3-axis accelerometer gravity vector steady at nominal angle. Micro motion within ±0.05g variance.',
+          explanation: `3-axis accelerometer gravity vector |G|=${motionMagnitude.toFixed(2)}g. SPL noise floor at ${spl.toFixed(1)} dB. Gesture inference classified nominal.`,
           inferenceType: 'Simulated Rule-Based TinyML Inference',
           timestamp: nowIso,
+          engine: 'TFLite Micro (INT8)',
+          executionStatus: 'Simulated Rule-Based',
+          rssiDbm: -58,
+          batteryVoltage: 3.28,
+          batteryPct: 94,
+          contributingFeatures: [
+            { label: 'Gravity Vector (|G|)', value: `${motionMagnitude.toFixed(2)}g`, impact: 'primary' },
+            { label: 'Acoustic SPL', value: `${spl.toFixed(1)} dB`, impact: 'secondary' },
+            { label: 'Gyroscope Drift', value: `${node.recentSignals?.gyro_dps || 1.18} dps`, impact: 'neutral' },
+          ],
         };
       } else if (node.id === 'node-esp32-max9814') {
+        const noiseDb = Number(node.recentSignals?.noise_floor_db ?? 58.4);
+        const snr = Number(node.recentSignals?.snr_db ?? 22.8);
+        const isSqueal = noiseDb > 70;
+
         preds[node.id] = {
           nodeId: node.id,
           modelId: 'acoustic-noise-v0.2.tflite',
-          predictionClass: 'nominal_rotation',
-          confidence: 0.91,
-          latencyMs: 11.5,
-          anomalyScore: 0.05,
-          explanation: 'Acoustic noise floor nominal at 58dB. Auto-gain control AGC stable. No motor bearing acoustic squeal detected.',
+          predictionClass: isSqueal ? 'high_frequency_squeal' : 'nominal_rotation',
+          confidence: +(0.90 + Math.sin(this.driftPhase * 0.6) * 0.05).toFixed(2),
+          latencyMs: +(11.5 + Math.cos(this.driftPhase * 1.2) * 0.8).toFixed(1),
+          anomalyScore: isSqueal ? 0.74 : 0.05,
+          explanation: `Acoustic noise floor nominal at ${noiseDb.toFixed(1)} dB with ${snr.toFixed(1)} dB SNR. Auto-gain control AGC stable.`,
           inferenceType: 'Simulated Rule-Based TinyML Inference',
           timestamp: nowIso,
+          engine: 'Edge Impulse MFCC C++',
+          executionStatus: 'Simulated Rule-Based',
+          rssiDbm: -64,
+          batteryVoltage: 3.72,
+          batteryPct: 88,
+          contributingFeatures: [
+            { label: 'Noise Floor SPL', value: `${noiseDb.toFixed(1)} dB`, impact: 'primary' },
+            { label: 'Signal-to-Noise', value: `${snr.toFixed(1)} dB`, impact: 'secondary' },
+            { label: 'AGC Gain Level', value: '40 dB (Vdd tied)', impact: 'neutral' },
+          ],
         };
       } else if (node.id === 'node-esp32-adxl345') {
         const isFault = node.integrationState === 'fault';
+        const rms = Number(node.recentSignals?.vib_rms_g ?? this.node3CurrentRms);
+        const freq = Number(node.recentSignals?.peak_freq_hz ?? this.node3CurrentFreq);
+
         preds[node.id] = {
           nodeId: node.id,
           modelId: 'tinyml-bearing-vibe-v1.0.0.tflite',
           predictionClass: isFault ? 'bearing_fault_2x_harmonic' : 'healthy_spindle_nominal',
           confidence: isFault ? 0.88 : 0.96,
-          latencyMs: 8.8,
+          latencyMs: +(8.8 + (isFault ? 2.4 : Math.sin(this.driftPhase) * 0.5)).toFixed(1),
           anomalyScore: isFault ? 0.88 : 0.04,
           explanation: isFault
-            ? 'ADXL345 detected elevated 120Hz harmonic (2X rotational speed). RMS vibration exceeds 0.08g warning threshold.'
-            : 'RMS vibration 0.018g well below ISO 10816-3 Class I limit (0.080g). Rotational harmonics balanced.',
+            ? `ADXL345 detected elevated 120Hz harmonic (${freq.toFixed(1)}Hz). RMS vibration ${rms.toFixed(3)}g exceeds 0.080g warning threshold.`
+            : `RMS vibration ${rms.toFixed(3)}g well below ISO 10816-3 Class I limit (0.080g). Rotational harmonics balanced at ${freq.toFixed(1)}Hz.`,
           inferenceType: 'Simulated Rule-Based TinyML Inference',
           timestamp: nowIso,
+          engine: 'TFLite Micro (INT8)',
+          executionStatus: 'Simulated Rule-Based',
+          rssiDbm: -52,
+          batteryVoltage: 3.81,
+          batteryPct: 91,
+          contributingFeatures: [
+            { label: 'RMS Vibration Vector', value: `${rms.toFixed(3)}g`, impact: 'primary' },
+            { label: 'Peak Frequency', value: `${freq.toFixed(1)} Hz`, impact: 'primary' },
+            { label: 'Bearing Health Index', value: `${(node.recentSignals?.bearing_health_index || 0.96)}`, impact: 'secondary' },
+          ],
         };
       } else if (node.id === 'node-esp32-pir-dist') {
+        const dist = Number(node.recentSignals?.distance_cm ?? 128.4);
+        const isPresence = Boolean(node.recentSignals?.presence_detected ?? false);
+
         preds[node.id] = {
           nodeId: node.id,
           modelId: 'proximity-statemachine-v1.0',
-          predictionClass: 'zone_clear',
+          predictionClass: isPresence ? 'zone_occupied' : 'zone_clear',
           confidence: 0.98,
           latencyMs: 3.2,
           anomalyScore: 0.01,
-          explanation: 'Ultrasonic rangefinder confirms safety zone cleared beyond 1.2m threshold.',
+          explanation: `Ultrasonic rangefinder confirms safety zone at ${dist.toFixed(1)} cm. Zone state evaluated as ${isPresence ? 'Occupied' : 'Clear'}.`,
           inferenceType: 'Simulated Rule-Based TinyML Inference',
           timestamp: nowIso,
+          engine: 'State Machine Micro',
+          executionStatus: 'Simulated Rule-Based',
+          rssiDbm: -71,
+          batteryVoltage: 3.65,
+          batteryPct: 82,
+          contributingFeatures: [
+            { label: 'Ultrasonic Distance', value: `${dist.toFixed(1)} cm`, impact: 'primary' },
+            { label: 'PIR Sensor State', value: isPresence ? 'TRIGGERED' : 'QUIET', impact: 'primary' },
+            { label: 'Trigger Delta', value: '< 20 ms', impact: 'neutral' },
+          ],
         };
       } else if (node.id === 'node-esp32-env-bme') {
+        const temp = Number(node.recentSignals?.temp_c ?? 24.2);
+        const hum = Number(node.recentSignals?.humidity_pct ?? 48.5);
+        const aqi = Number(node.recentSignals?.gas_aqi ?? 84);
+
         preds[node.id] = {
           nodeId: node.id,
           modelId: 'baseline-aqi-compensator-v0.1',
-          predictionClass: 'air_quality_good',
+          predictionClass: aqi > 120 ? 'moderate_air_pollution' : 'air_quality_good',
           confidence: 0.92,
           latencyMs: 4.6,
-          anomalyScore: 0.03,
-          explanation: 'BME680 temperature & humidity compensation applied to MQ-135 analog resistance curve.',
+          anomalyScore: aqi > 120 ? 0.45 : 0.03,
+          explanation: `BME680 compensation applied: Temp=${temp.toFixed(1)}°C, Hum=${hum.toFixed(1)}%. Gas AQI at ${aqi} PPM.`,
           inferenceType: 'Simulated Rule-Based TinyML Inference',
           timestamp: nowIso,
+          engine: 'CMSIS-NN Regression',
+          executionStatus: 'Simulated Rule-Based',
+          rssiDbm: -68,
+          batteryVoltage: 3.75,
+          batteryPct: 86,
+          contributingFeatures: [
+            { label: 'Gas Sensor AQI', value: `${aqi} PPM`, impact: 'primary' },
+            { label: 'Ambient Temperature', value: `${temp.toFixed(1)}°C`, impact: 'secondary' },
+            { label: 'Relative Humidity', value: `${hum.toFixed(1)}%`, impact: 'secondary' },
+          ],
         };
       } else {
         preds[node.id] = {
@@ -408,6 +485,15 @@ export class TelemetrySimulator {
           explanation: `Simulated custom node ${node.name} operating within nominal protocol tolerances.`,
           inferenceType: 'Simulated Rule-Based TinyML Inference',
           timestamp: nowIso,
+          engine: 'Custom Edge Runtime',
+          executionStatus: 'Simulated Rule-Based',
+          rssiDbm: -65,
+          batteryVoltage: 3.70,
+          batteryPct: 90,
+          contributingFeatures: [
+            { label: 'Ping Latency', value: `${node.recentSignals?.ping_rtt_ms || 12.4} ms`, impact: 'primary' },
+            { label: 'Packet Ingest Count', value: `${node.packetCount}`, impact: 'secondary' },
+          ],
         };
       }
     }

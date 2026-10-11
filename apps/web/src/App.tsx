@@ -13,6 +13,9 @@ import { BillingPage } from '@/pages/BillingPage';
 import { TeamPage } from '@/pages/TeamPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { PredictiveAiPage } from '@/pages/PredictiveAiPage';
+import { FederatedLearningPage } from '@/pages/FederatedLearningPage';
+import { DynamicSchedulingPage } from '@/pages/DynamicSchedulingPage';
+import { BenchmarkPage } from '@/pages/BenchmarkPage';
 import { SimulatorProvider } from '@/context/SimulatorContext';
 import { NavigationProvider } from '@/context/NavigationContext';
 import { useSimulator } from '@/context/SimulatorContext';
@@ -40,6 +43,9 @@ function MainContent() {
         {currentRoute === 'telemetry' && <TelemetryPage />}
         {currentRoute === 'analytics' && <AnalyticsReporting />}
         {currentRoute === 'predictive-ai' && <PredictiveAiPage />}
+        {currentRoute === 'federated-learning' && <FederatedLearningPage />}
+        {currentRoute === 'dynamic-scheduling' && <DynamicSchedulingPage />}
+        {currentRoute === 'benchmarks' && <BenchmarkPage />}
         {currentRoute === 'alerts' && <AlertsPage />}
         {currentRoute === 'models' && <ModelsPage />}
         {currentRoute === 'deployments' && <DeploymentsPage />}

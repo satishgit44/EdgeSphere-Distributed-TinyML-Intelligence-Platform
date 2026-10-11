@@ -28,6 +28,9 @@ export type NavRoute =
   | 'alerts'
   | 'analytics'
   | 'predictive-ai'
+  | 'federated-learning'
+  | 'dynamic-scheduling'
+  | 'benchmarks'
   | 'models'
   | 'deployments'
   | 'reports'
@@ -59,6 +62,9 @@ const mainMenu: NavItem[] = [
   { id: 'alerts', label: 'Alerts', icon: <AlertTriangle size={18} />, badge: '1' },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={18} /> },
   { id: 'predictive-ai', label: 'Predictive AI (Node 3)', icon: <Activity size={18} /> },
+  { id: 'federated-learning', label: 'Federated Learning', icon: <Layers size={18} /> },
+  { id: 'dynamic-scheduling', label: 'Dynamic Scheduling', icon: <Zap size={18} /> },
+  { id: 'benchmarks', label: 'Engine Benchmarks', icon: <BarChart3 size={18} /> },
   { id: 'models', label: 'Model Registry', icon: <Box size={18} /> },
   { id: 'deployments', label: 'Deployments & OTA', icon: <Rocket size={18} /> },
 ];
