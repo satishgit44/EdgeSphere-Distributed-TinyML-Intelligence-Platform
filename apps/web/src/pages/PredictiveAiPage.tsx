@@ -10,20 +10,23 @@ import {
 } from 'recharts';
 import { useSimulator } from '@/context/SimulatorContext';
 
-const FFT_SPECTRUM_DATA = [
-  { freq: '10Hz', power: 0.012, baseline: 0.011 },
-  { freq: '30Hz', power: 0.018, baseline: 0.016 },
-  { freq: '60Hz (RPM)', power: 0.045, baseline: 0.042 },
-  { freq: '120Hz (2X)', power: 0.185, baseline: 0.024 }, // harmonic peak during fault
-  { freq: '240Hz', power: 0.032, baseline: 0.018 },
-  { freq: '500Hz', power: 0.022, baseline: 0.015 },
-  { freq: '1kHz', power: 0.014, baseline: 0.012 },
-];
-
 export function PredictiveAiPage() {
-  const { nodes, injectSensorFault } = useSimulator();
+  const { nodes, injectSensorFault, fftHarmonics, predictions } = useSimulator();
   const node3 = nodes.find((n) => n.id === 'node-esp32-adxl345');
   const isFault = node3?.integrationState === 'fault';
+  const node3Pred = predictions['node-esp32-adxl345'];
+
+  const rmsValue = node3?.recentSignals?.vib_rms_g !== undefined
+    ? `${Number(node3.recentSignals.vib_rms_g).toFixed(3)}g`
+    : (isFault ? '0.284g' : '0.018g');
+
+  const healthPct = node3?.recentSignals?.bearing_health_index !== undefined
+    ? `${Math.round(Number(node3.recentSignals.bearing_health_index) * 100)}%`
+    : (isFault ? '68%' : '94%');
+
+  const anomalyScore = node3Pred
+    ? node3Pred.anomalyScore.toFixed(2)
+    : (isFault ? '0.88' : '0.04');
 
   return (
     <div className="es-page-container">
@@ -63,7 +66,7 @@ export function PredictiveAiPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 6 }}>
             <span style={{ fontSize: '32px', fontWeight: 800, color: isFault ? '#D83A4E' : '#16A36A' }}>
-              {isFault ? '68%' : '94%'}
+              {healthPct}
             </span>
             <span className={`es-kpi-trend-pill ${isFault ? 'is-danger' : 'is-positive'}`}>
               {isFault ? 'Degraded Wear' : 'Nominal Baseline'}
@@ -80,7 +83,7 @@ export function PredictiveAiPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 6 }}>
             <span style={{ fontSize: '32px', fontWeight: 800, color: '#17171C' }}>
-              {isFault ? '0.284g' : '0.018g'}
+              {rmsValue}
             </span>
             <span className="es-kpi-trend-pill is-blue">ISO 10816-3 Class I</span>
           </div>
@@ -95,7 +98,7 @@ export function PredictiveAiPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 6 }}>
             <span style={{ fontSize: '32px', fontWeight: 800, color: isFault ? '#B7791F' : '#16A36A' }}>
-              {isFault ? '0.88' : '0.04'}
+              {anomalyScore}
             </span>
             <span className="es-kpi-trend-pill is-orange">Autoencoder INT8</span>
           </div>
@@ -119,7 +122,7 @@ export function PredictiveAiPage() {
 
           <div className="es-nexus-card-body" style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={FFT_SPECTRUM_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={fftHarmonics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0EDF7" />
                 <XAxis dataKey="freq" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
@@ -176,7 +179,7 @@ export function PredictiveAiPage() {
 
             <div style={{ marginTop: 10, padding: '12px', background: '#F8F8FB', borderRadius: '8px', fontSize: '11.5px', color: '#737487', lineHeight: 1.5 }}>
               <Info size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -2 }} />
-              <strong>Explainability Note:</strong> Model prediction is derived from INT8 quantized feature embeddings on the ESP32. A model alert is a statistical warning and does not constitute human-verified mechanical failure.
+              <strong>Explainability Note:</strong> Model prediction is derived from {node3Pred?.inferenceType || 'INT8 quantized feature embeddings on the ESP32'}. {node3Pred?.explanation} A model alert is a statistical warning and does not constitute human-verified mechanical failure.
             </div>
           </div>
         </article>

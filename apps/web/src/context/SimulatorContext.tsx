@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type {
   EdgeGateway,
   PlannedNode,
@@ -18,6 +18,17 @@ import {
   DEFAULT_INCIDENTS_ACTIVE,
   DEFAULT_LOG_EVENTS,
 } from '@/data/simulator';
+import {
+  getTelemetrySimulator,
+  type TelemetryPoint,
+  type LivePrediction,
+  type FftHarmonic,
+} from '@/services/telemetrySimulator';
+import {
+  loadPersistedState,
+  savePersistedState,
+  clearPersistedState,
+} from '@/services/telemetryStorage';
 
 export interface DeviceMeta {
   location: string;
@@ -42,6 +53,9 @@ interface SimulatorContextValue {
   isFreshInstall: boolean;
   selectedNode: PlannedNode | null;
   customDeviceMeta: Record<string, DeviceMeta>;
+  history: TelemetryPoint[];
+  predictions: Record<string, LivePrediction>;
+  fftHarmonics: FftHarmonic[];
   setSelectedNode: (node: PlannedNode | null) => void;
   resetToFreshInstall: () => void;
   startSimulatorFleet: () => void;
@@ -56,25 +70,91 @@ interface SimulatorContextValue {
 export const SimulatorContext = createContext<SimulatorContextValue | null>(null);
 
 export function SimulatorProvider({ children }: { children: ReactNode }) {
-  const [isFreshInstall, setIsFreshInstall] = useState(false);
-  const [isSimulatorRunning, setIsSimulatorRunning] = useState(true);
+  // 1. Initial State from Storage (if available)
+  const persisted = loadPersistedState();
+
+  const [isFreshInstall, setIsFreshInstall] = useState(persisted?.isFreshInstall ?? false);
+  const [isSimulatorRunning, setIsSimulatorRunning] = useState(persisted?.isSimulatorRunning ?? true);
   const [mode] = useState<HardwareMode>('simulation');
 
-  const [gateway, setGateway] = useState<EdgeGateway>(DEFAULT_GATEWAY_ACTIVE);
-  const [nodes, setNodes] = useState<PlannedNode[]>(DEFAULT_PLANNED_NODES);
-  const [pipeline, setPipeline] = useState<TelemetryPipelineHealth>(DEFAULT_PIPELINE_ACTIVE);
+  // Baseline nodes combined with persisted custom nodes
+  const initialNodes: PlannedNode[] = persisted?.customNodes && persisted.customNodes.length > 0
+    ? [...DEFAULT_PLANNED_NODES, ...persisted.customNodes]
+    : DEFAULT_PLANNED_NODES;
+
+  const [nodes, setNodes] = useState<PlannedNode[]>(initialNodes);
+  const [customDeviceMeta, setCustomDeviceMeta] = useState<Record<string, DeviceMeta>>(
+    persisted?.customDeviceMeta ?? {},
+  );
+  const [gateway, setGateway] = useState<EdgeGateway>(
+    isFreshInstall ? DEFAULT_GATEWAY_UNCONFIGURED : DEFAULT_GATEWAY_ACTIVE,
+  );
+  const [pipeline, setPipeline] = useState<TelemetryPipelineHealth>(
+    isFreshInstall ? DEFAULT_PIPELINE_UNCONFIGURED : DEFAULT_PIPELINE_ACTIVE,
+  );
   const [models] = useState<TinyMLModelArtifact[]>(DEFAULT_MODELS);
-  const [incidents, setIncidents] = useState<EdgeIncident[]>(DEFAULT_INCIDENTS_ACTIVE);
+  const [incidents, setIncidents] = useState<EdgeIncident[]>(
+    persisted?.incidents ?? DEFAULT_INCIDENTS_ACTIVE,
+  );
   const [logs, setLogs] = useState<OperationalLogEvent[]>(DEFAULT_LOG_EVENTS);
   const [selectedNode, setSelectedNode] = useState<PlannedNode | null>(null);
-  const [customDeviceMeta, setCustomDeviceMeta] = useState<Record<string, DeviceMeta>>({});
 
-  /* Reset to completely fresh install (Empty state requirement!) */
+  // Live telemetry stream state from the Simulator Engine
+  const [history, setHistory] = useState<TelemetryPoint[]>([]);
+  const [predictions, setPredictions] = useState<Record<string, LivePrediction>>({});
+  const [fftHarmonics, setFftHarmonics] = useState<FftHarmonic[]>([]);
+
+  // 2. Initialize and subscribe to the decoupled TelemetrySimulator engine
+  useEffect(() => {
+    const sim = getTelemetrySimulator({
+      initialNodes,
+      initialIncidents: incidents,
+      isRunning: isSimulatorRunning,
+      isFreshInstall,
+    });
+
+    const unsubscribe = sim.subscribe((simState) => {
+      setGateway(simState.gateway);
+      setNodes(simState.nodes);
+      setPipeline(simState.pipeline);
+      setIncidents(simState.incidents);
+      setHistory(simState.history);
+      setPredictions(simState.predictions);
+      setFftHarmonics(simState.fftHarmonics);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+
+  // 3. Keep storage in sync with user mutations
+  useEffect(() => {
+    // Only persist custom nodes that are beyond the 5 initial baseline nodes
+    const baselineIds = new Set(DEFAULT_PLANNED_NODES.map((n) => n.id));
+    const customNodes = nodes.filter((n) => !baselineIds.has(n.id));
+
+    savePersistedState({
+      customNodes,
+      customDeviceMeta,
+      isSimulatorRunning,
+      isFreshInstall,
+      incidents,
+    });
+  }, [nodes, customDeviceMeta, isSimulatorRunning, isFreshInstall, incidents]);
+
+  /* Reset to completely fresh install */
   const resetToFreshInstall = useCallback(() => {
     setIsFreshInstall(true);
     setIsSimulatorRunning(false);
     setGateway(DEFAULT_GATEWAY_UNCONFIGURED);
     setCustomDeviceMeta({});
+    clearPersistedState();
+
+    const sim = getTelemetrySimulator();
+    sim.setFreshInstall(true);
+
     setNodes(
       DEFAULT_PLANNED_NODES.map((n) => ({
         ...n,
@@ -107,6 +187,13 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
     setCustomDeviceMeta({});
     setPipeline(DEFAULT_PIPELINE_ACTIVE);
     setIncidents(DEFAULT_INCIDENTS_ACTIVE);
+
+    const sim = getTelemetrySimulator();
+    sim.setFreshInstall(false);
+    sim.setNodes(DEFAULT_PLANNED_NODES);
+    sim.setIncidents(DEFAULT_INCIDENTS_ACTIVE);
+    sim.start();
+
     setLogs((prev) => [
       {
         id: `evt-start-${Date.now()}`,
@@ -123,6 +210,13 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
   const toggleSimulatorRunning = useCallback(() => {
     setIsSimulatorRunning((prev) => {
       const nextState = !prev;
+      const sim = getTelemetrySimulator();
+      if (nextState) {
+        sim.start();
+      } else {
+        sim.pause();
+      }
+
       setPipeline((p) => ({
         ...p,
         pipelineHealth: nextState ? 'nominal' : 'idle',
@@ -144,37 +238,8 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
 
   /* Inject real fault into ADXL345 node */
   const injectSensorFault = useCallback((nodeId = 'node-esp32-adxl345') => {
-    const faultId = `INC-FAULT-${Date.now().toString().slice(-4)}`;
-    const newIncident: EdgeIncident = {
-      id: faultId,
-      title: 'ADXL345 High-G Resonance Anomaly / SPI Overrun',
-      nodeId,
-      severity: 'critical',
-      status: 'open',
-      detectedAt: new Date().toISOString(),
-      description: 'SPI FIFO buffer overrun flag set on ADXL345. Sensor acceleration exceeded ±16g threshold.',
-      remediationStep: 'Reset SPI clock prescaler on ESP32 or restart task.',
-    };
-
-    setIncidents((prev) => [newIncident, ...prev]);
-
-    setNodes((prev) =>
-      prev.map((n) =>
-        n.id === nodeId
-          ? {
-              ...n,
-              integrationState: 'fault',
-              recentSignals: { ...n.recentSignals, fault_flag: true, vib_rms_g: 2.84 },
-            }
-          : n,
-      ),
-    );
-
-    setPipeline((p) => ({
-      ...p,
-      droppedPacketsCount: p.droppedPacketsCount + 1,
-      pipelineHealth: 'degraded',
-    }));
+    const sim = getTelemetrySimulator();
+    sim.injectFault(nodeId);
 
     setLogs((prev) => [
       {
@@ -190,19 +255,8 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
 
   /* Resolve an incident */
   const resolveIncident = useCallback((id: string) => {
-    setIncidents((prev) =>
-      prev.map((inc) =>
-        inc.id === id
-          ? { ...inc, status: 'resolved', resolvedAt: new Date().toISOString() }
-          : inc,
-      ),
-    );
-
-    setNodes((prev) =>
-      prev.map((n) => (n.integrationState === 'fault' ? { ...n, integrationState: 'simulated' } : n)),
-    );
-
-    setPipeline((p) => ({ ...p, pipelineHealth: 'nominal' }));
+    const sim = getTelemetrySimulator();
+    sim.resolveFault(id);
 
     setLogs((prev) => [
       {
@@ -219,38 +273,23 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
   /* Transmit single manual telemetry burst */
   const transmitSingleBurst = useCallback(() => {
     if (isFreshInstall) return;
+    const sim = getTelemetrySimulator();
+    sim.step(1000);
+
     const nowIso = new Date().toISOString();
-
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.integrationState !== 'simulated' && n.integrationState !== 'connected') return n;
-        return {
-          ...n,
-          packetCount: n.packetCount + 1,
-          lastSeenTimestamp: nowIso,
-        };
-      }),
-    );
-
-    setPipeline((p) => ({
-      ...p,
-      messagesReceivedTotal: p.messagesReceivedTotal + 3,
-      lastPacketTimestamp: nowIso,
-    }));
-
     setLogs((prev) => [
       {
         id: `evt-burst-${Date.now()}`,
         timestamp: nowIso,
         severity: 'info',
         source: 'telemetry-bus',
-        message: 'Manual telemetry burst accepted from 3 active simulated nodes (3 packets ingested).',
+        message: 'Manual telemetry burst accepted from active simulated nodes.',
       },
       ...prev,
     ]);
   }, [isFreshInstall]);
 
-  /* Register a new edge node (Phase B: Real in-memory frontend registration) */
+  /* Register a new edge node (Phase B & C: dynamically joins simulation) */
   const registerNode = useCallback(
     (newNode: PlannedNode, meta?: Partial<DeviceMeta>): RegisterNodeResult => {
       const trimmedId = newNode.id?.trim();
@@ -267,7 +306,8 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
         return { success: false, error: `Device ID "${trimmedId}" already exists in the fleet registry.` };
       }
 
-      setNodes((prev) => [...prev, newNode]);
+      const updatedNodes = [...nodes, newNode];
+      setNodes(updatedNodes);
       setCustomDeviceMeta((prev) => ({
         ...prev,
         [newNode.id]: {
@@ -276,6 +316,10 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
           icon: meta?.icon || 'cpu',
         },
       }));
+
+      // Update simulator engine with new node
+      const sim = getTelemetrySimulator();
+      sim.setNodes(updatedNodes);
 
       setLogs((prev) => [
         {
@@ -307,6 +351,9 @@ export function SimulatorProvider({ children }: { children: ReactNode }) {
         isFreshInstall,
         selectedNode,
         customDeviceMeta,
+        history,
+        predictions,
+        fftHarmonics,
         setSelectedNode,
         resetToFreshInstall,
         startSimulatorFleet,

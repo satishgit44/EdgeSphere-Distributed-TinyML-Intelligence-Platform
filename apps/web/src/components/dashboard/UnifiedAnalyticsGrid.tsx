@@ -11,44 +11,79 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { MoreVertical } from 'lucide-react';
-
-const USAGE_DATA = [
-  { month: 'Jan', usage: 140, isHighlight: false },
-  { month: 'Feb', usage: 165, isHighlight: false },
-  { month: 'Mar', usage: 180, isHighlight: false },
-  { month: 'Apr', usage: 155, isHighlight: false },
-  { month: 'May', usage: 195, isHighlight: false },
-  { month: 'Jun', usage: 230, isHighlight: true },
-  { month: 'Jul', usage: 175, isHighlight: false },
-  { month: 'Aug', usage: 160, isHighlight: false },
-  { month: 'Sep', usage: 185, isHighlight: false },
-  { month: 'Oct', usage: 210, isHighlight: false },
-  { month: 'Nov', usage: 190, isHighlight: false },
-  { month: 'Dec', usage: 220, isHighlight: false },
-];
-
-const TEMP_DATA = [
-  { time: '04.00', temp: 21.8 },
-  { time: '08.00', temp: 26.2 },
-  { time: '12.00', temp: 22.1 },
-  { time: '16.00', temp: 25.0 },
-  { time: '20.00', temp: 28.4 },
-  { time: '23.00', temp: 26.8 },
-];
-
-const ENERGY_DATA = [
-  { time: '12.00', primary: 68, secondary: 34 },
-  { time: '14.00', primary: 92, secondary: 38 },
-  { time: '16.00', primary: 85, secondary: 28 },
-  { time: '18.00', primary: 75, secondary: 42 },
-  { time: '20.00', primary: 64, secondary: 32 },
-  { time: '23.00', primary: 82, secondary: 36 },
-];
+import { useSimulator } from '@/context/SimulatorContext';
 
 export function UnifiedAnalyticsGrid() {
-  const [usageRange, setUsageRange] = useState('Last 1 Years');
-  const [tempRange, setTempRange] = useState('Last 24 Hours');
-  const [energyRange, setEnergyRange] = useState('Last 24 Hours');
+  const { history, nodes, pipeline, isFreshInstall } = useSimulator();
+  const [usageRange, setUsageRange] = useState('Realtime (Live)');
+  const [tempRange, setTempRange] = useState('Realtime (Live)');
+  const [energyRange, setEnergyRange] = useState('Realtime (Live)');
+
+  // 1. Devices Usage Analytics: use live telemetry history if available
+  // Map history to 6-12 points or fallback to default smoothly
+  const liveUsageData = history.length > 0
+    ? history.slice(-12).map((pt, idx, arr) => ({
+        month: pt.timeLabel.slice(3, 8), // "02:30"
+        usage: Math.round(pt.dataUsageMb % 300 + 100),
+        isHighlight: idx === arr.length - 1,
+      }))
+    : [
+        { month: 'T-5', usage: 140, isHighlight: false },
+        { month: 'T-4', usage: 165, isHighlight: false },
+        { month: 'T-3', usage: 180, isHighlight: false },
+        { month: 'T-2', usage: 155, isHighlight: false },
+        { month: 'T-1', usage: 195, isHighlight: false },
+        { month: 'Now', usage: 230, isHighlight: true },
+      ];
+
+  // 2. Temperature & Vibration Monitoring: live gateway thermal temperature
+  const liveTempData = history.length > 0
+    ? history.slice(-8).map((pt) => ({
+        time: pt.timeLabel.slice(3, 8),
+        temp: pt.gatewayTemp,
+        vib: pt.node3RmsG,
+      }))
+    : [
+        { time: '04.00', temp: 42.8, vib: 0.018 },
+        { time: '08.00', temp: 43.5, vib: 0.019 },
+        { time: '12.00', temp: 44.1, vib: 0.018 },
+        { time: '16.00', temp: 43.8, vib: 0.018 },
+        { time: '20.00', temp: 44.2, vib: 0.020 },
+        { time: '23.00', temp: 43.9, vib: 0.019 },
+      ];
+
+  // 3. Ingestion Rate & Latency: live msg/s and inference latency
+  const liveEnergyData = history.length > 0
+    ? history.slice(-8).map((pt) => ({
+        time: pt.timeLabel.slice(3, 8),
+        primary: +(pt.ingestionRate * 30).toFixed(1), // Scaled packet flux
+        secondary: +(pt.latencyMs * 5).toFixed(1), // Scaled ms latency
+      }))
+    : [
+        { time: '12.00', primary: 68, secondary: 34 },
+        { time: '14.00', primary: 75, secondary: 38 },
+        { time: '16.00', primary: 72, secondary: 36 },
+        { time: '18.00', primary: 75, secondary: 42 },
+        { time: '20.00', primary: 68, secondary: 35 },
+        { time: '23.00', primary: 74, secondary: 36 },
+      ];
+
+  // 4. Device Distribution: Truthful grounded fleet distribution based on actual nodes!
+  const totalDeviceCount = isFreshInstall ? 0 : nodes.length;
+  // Calculate category count from actual fleet:
+  // Node 1 (Nano BLE) = Gesture/IMU, Node 2 (MAX9814) = Acoustic, Node 3 (ADXL345) = Vibration,
+  // Node 4 (PIR/Dist) = Motion/Proximity, Node 5 (MQ135) = Environmental
+  const sensorNodes = nodes.filter((n) => n.id.includes('adxl345') || n.id.includes('max9814') || n.id.includes('nano33')).length;
+  const presenceNodes = nodes.filter((n) => n.id.includes('pir') || n.id.includes('dist')).length;
+  const envNodes = nodes.filter((n) => n.id.includes('env') || n.id.includes('bme')).length;
+  const customNodes = nodes.filter((n) => !n.id.startsWith('node-')).length;
+
+  const sensorPct = totalDeviceCount > 0 ? Math.round((sensorNodes / totalDeviceCount) * 100) : 0;
+  const motionPct = totalDeviceCount > 0 ? Math.round((presenceNodes / totalDeviceCount) * 100) : 0;
+  const envPct = totalDeviceCount > 0 ? Math.round((envNodes / totalDeviceCount) * 100) : 0;
+  const customPct = totalDeviceCount > 0 ? Math.round((customNodes / totalDeviceCount) * 100) : 0;
+
+  const latestPoint = history[history.length - 1];
 
   return (
     <div className="es-analytics-2x2-grid">
@@ -65,9 +100,9 @@ export function UnifiedAnalyticsGrid() {
               onChange={(e) => setUsageRange(e.target.value)}
               aria-label="Usage range"
             >
-              <option>Last 1 Years</option>
-              <option>Last 6 Months</option>
-              <option>Last 30 Days</option>
+              <option>Realtime (Live)</option>
+              <option>Last 6 Hours</option>
+              <option>Last 24 Hours</option>
             </select>
             <button type="button" className="es-icon-kebab" aria-label="More options">
               <MoreVertical size={15} />
@@ -76,15 +111,19 @@ export function UnifiedAnalyticsGrid() {
         </div>
 
         <div className="es-panel-body" style={{ height: 220, position: 'relative' }}>
-          {/* Connexio Style Popover Pin above June */}
+          {/* Popover Pin above current peak */}
           <div className="es-june-popover">
-            <div className="es-popover-month">Juni</div>
-            <div className="es-popover-usage">Usage: <strong>230 GB</strong></div>
-            <div className="es-popover-comp">Compare to Last Year: <span className="is-positive">+12%</span></div>
+            <div className="es-popover-month">Live Stream</div>
+            <div className="es-popover-usage">
+              Usage: <strong>{latestPoint ? `${latestPoint.dataUsageMb} MB` : '1.2 GB'}</strong>
+            </div>
+            <div className="es-popover-comp">
+              Rate: <span className="is-positive">{pipeline.ingestionRatePerSec.toFixed(1)} msg/s</span>
+            </div>
           </div>
 
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={USAGE_DATA} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+            <BarChart data={liveUsageData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0EDF7" />
               <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
               <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
@@ -125,7 +164,7 @@ export function UnifiedAnalyticsGrid() {
       <article className="es-chart-panel">
         <div className="es-panel-header">
           <div>
-            <h3 className="es-panel-title">Temperature & Vibration Monitoring</h3>
+            <h3 className="es-panel-title">Gateway Thermals & Vibration Stream</h3>
           </div>
           <div className="es-panel-header-controls">
             <select
@@ -134,9 +173,9 @@ export function UnifiedAnalyticsGrid() {
               onChange={(e) => setTempRange(e.target.value)}
               aria-label="Temperature range"
             >
+              <option>Realtime (Live)</option>
+              <option>Last 6 Hours</option>
               <option>Last 24 Hours</option>
-              <option>Last 7 Days</option>
-              <option>Realtime (1h)</option>
             </select>
             <button type="button" className="es-icon-kebab" aria-label="More options">
               <MoreVertical size={15} />
@@ -147,15 +186,17 @@ export function UnifiedAnalyticsGrid() {
         <div className="es-panel-body" style={{ height: 220, position: 'relative' }}>
           {/* Popover Pin over peak */}
           <div className="es-temp-popover">
-            <span>Celsius</span>
-            <strong>26°C • 0.018g</strong>
+            <span>Gateway / ADXL345</span>
+            <strong>
+              {latestPoint ? `${latestPoint.gatewayTemp}°C • ${latestPoint.node3RmsG}g` : '43.8°C • 0.018g'}
+            </strong>
           </div>
 
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={TEMP_DATA} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+            <LineChart data={liveTempData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0EDF7" />
               <XAxis dataKey="time" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
-              <YAxis domain={[18, 32]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
+              <YAxis domain={[38, 50]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#FFFFFF',
@@ -181,7 +222,7 @@ export function UnifiedAnalyticsGrid() {
       <article className="es-chart-panel">
         <div className="es-panel-header">
           <div>
-            <h3 className="es-panel-title">Energy Consumption & Inference Latency</h3>
+            <h3 className="es-panel-title">Packet Flux & Inference Latency</h3>
           </div>
           <div className="es-panel-header-controls">
             <select
@@ -190,8 +231,9 @@ export function UnifiedAnalyticsGrid() {
               onChange={(e) => setEnergyRange(e.target.value)}
               aria-label="Energy range"
             >
+              <option>Realtime (Live)</option>
+              <option>Last 6 Hours</option>
               <option>Last 24 Hours</option>
-              <option>Last 7 Days</option>
             </select>
             <button type="button" className="es-icon-kebab" aria-label="More options">
               <MoreVertical size={15} />
@@ -202,13 +244,21 @@ export function UnifiedAnalyticsGrid() {
         <div className="es-panel-body" style={{ height: 200, position: 'relative' }}>
           {/* Popover Legend on right */}
           <div className="es-energy-popover">
-            <div className="es-pop-date">Jun, 2026</div>
-            <div className="es-pop-row"><span className="es-dot-blue" /> 75 kWh • 9.4 ms <span className="is-pos">↑ 12</span></div>
-            <div className="es-pop-row"><span className="es-dot-dark" /> 32 kWh • 4.2 ms <span className="is-pos">↓ 12</span></div>
+            <div className="es-pop-date">Simulated Telemetry Bus</div>
+            <div className="es-pop-row">
+              <span className="es-dot-blue" />
+              {latestPoint ? `${latestPoint.ingestionRate} msg/s` : '2.4 msg/s'}
+              <span className="is-pos">Nominal</span>
+            </div>
+            <div className="es-pop-row">
+              <span className="es-dot-dark" />
+              {latestPoint ? `${latestPoint.latencyMs} ms` : '9.4 ms'}
+              <span className="is-pos">INT8</span>
+            </div>
           </div>
 
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={ENERGY_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <LineChart data={liveEnergyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0EDF7" />
               <XAxis dataKey="time" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
               <YAxis domain={[0, 110]} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#8F90A6' }} />
@@ -220,7 +270,7 @@ export function UnifiedAnalyticsGrid() {
         </div>
       </article>
 
-      {/* 4. Device Distribution (Connexio 4-Cluster Vertical Bars) */}
+      {/* 4. Device Distribution: Grounded Fleet Distribution */}
       <article className="es-chart-panel">
         <div className="es-panel-header">
           <div>
@@ -233,57 +283,57 @@ export function UnifiedAnalyticsGrid() {
 
         <div className="es-panel-body es-dist-body">
           <div className="es-dist-total">
-            <span className="es-dist-num">250</span>
-            <span className="es-dist-lbl">Total Devices</span>
+            <span className="es-dist-num">{totalDeviceCount}</span>
+            <span className="es-dist-lbl">Fleet Nodes</span>
           </div>
 
           <div className="es-dist-columns">
-            {/* Cluster 1: Sensors */}
+            {/* Cluster 1: TinyML Sensors (IMU, Acoustic, Vibration) */}
             <div className="es-dist-col">
-              <span className="es-dist-col-title">Sensors</span>
-              <strong className="es-dist-col-count">120</strong>
+              <span className="es-dist-col-title">ML Sensors</span>
+              <strong className="es-dist-col-count">{sensorNodes}</strong>
               <div className="es-dist-pill-rack">
                 {[10, 8, 9, 10, 7, 8, 9, 10].map((h, i) => (
                   <div key={i} className="es-dist-pill is-blue" style={{ height: `${h * 4}px` }} />
                 ))}
               </div>
-              <span className="es-dist-col-pct">60%</span>
+              <span className="es-dist-col-pct">{sensorPct}%</span>
             </div>
 
-            {/* Cluster 2: Actuators */}
+            {/* Cluster 2: Presence / PIR / Distance */}
             <div className="es-dist-col">
-              <span className="es-dist-col-title">Actuators</span>
-              <strong className="es-dist-col-count">80</strong>
+              <span className="es-dist-col-title">Motion/PIR</span>
+              <strong className="es-dist-col-count">{presenceNodes}</strong>
               <div className="es-dist-pill-rack">
                 {[7, 6, 8, 7, 6, 8, 7, 6].map((h, i) => (
                   <div key={i} className="es-dist-pill is-cyan" style={{ height: `${h * 4}px` }} />
                 ))}
               </div>
-              <span className="es-dist-col-pct">40%</span>
+              <span className="es-dist-col-pct">{motionPct}%</span>
             </div>
 
-            {/* Cluster 3: Temperature */}
+            {/* Cluster 3: Environmental / Gas */}
             <div className="es-dist-col">
-              <span className="es-dist-col-title">Temperature</span>
-              <strong className="es-dist-col-count">25</strong>
+              <span className="es-dist-col-title">Environment</span>
+              <strong className="es-dist-col-count">{envNodes}</strong>
+              <div className="es-dist-pill-rack">
+                {[5, 6, 5, 6, 5, 6, 5, 6].map((h, i) => (
+                  <div key={i} className="es-dist-pill is-light-blue" style={{ height: `${h * 4}px` }} />
+                ))}
+              </div>
+              <span className="es-dist-col-pct">{envPct}%</span>
+            </div>
+
+            {/* Cluster 4: Custom Registered Nodes */}
+            <div className="es-dist-col">
+              <span className="es-dist-col-title">Registered</span>
+              <strong className="es-dist-col-count">{customNodes}</strong>
               <div className="es-dist-pill-rack">
                 {[4, 5, 4, 5, 4, 5, 4, 5].map((h, i) => (
                   <div key={i} className="es-dist-pill is-light-blue" style={{ height: `${h * 4}px` }} />
                 ))}
               </div>
-              <span className="es-dist-col-pct">25%</span>
-            </div>
-
-            {/* Cluster 4: Controllers */}
-            <div className="es-dist-col">
-              <span className="es-dist-col-title">Controllers</span>
-              <strong className="es-dist-col-count">25</strong>
-              <div className="es-dist-pill-rack">
-                {[4, 5, 4, 5, 4, 5, 4, 5].map((h, i) => (
-                  <div key={i} className="es-dist-pill is-light-blue" style={{ height: `${h * 4}px` }} />
-                ))}
-              </div>
-              <span className="es-dist-col-pct">25%</span>
+              <span className="es-dist-col-pct">{customPct}%</span>
             </div>
           </div>
         </div>
